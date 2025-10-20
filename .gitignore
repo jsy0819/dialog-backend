@@ -312,10 +312,5 @@ design-assets/
 # 민감 정보 패턴(*auth*)에 걸리지만, 필수 소스 코드이므로 강제 포함
 # ===============================================
 
-!com/dialog/security/oauth2/CustomOAuth2User.java
-!com/dialog/security/oauth2/GoogleUserInfo.java
-!com/dialog/security/oauth2/KaKaoUserInfo.java
-!com/dialog/security/oauth2/OAuth2AuthenticationFailurHandler.java
-!com/dialog/security/oauth2/OAuth2AuthenticationSuccessHandlerJWT.java
-!com/dialog/security/oauth2/SocialUserInfo.java
-!com/dialog/security/oauth2/SocialUserInfoFactory.java
+com/dialog/security/oauth2/
+!com/dialog/security/oauth2/
