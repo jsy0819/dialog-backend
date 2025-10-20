@@ -3,23 +3,16 @@ server:
 
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+        dialect: org.hibernate.dialect.MySQL8Dialect
 
   thymeleaf:
     cache: false
@@ -49,9 +42,9 @@ spring:
             user-name-attribute: id
 
   profiles:
-    active: secret
+    include: secret
 
 logging:
   level:
-    com.example.demo.JWT: DEBUG
-    com.example.demo.oauth2: DEBUG
+    com.dialog.security.jwt: DEBUG
+    com.dialog.security.oauth2: DEBUG
