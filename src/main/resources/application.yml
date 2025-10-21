@@ -3,9 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/your_db_name?serverTimezone=Asia/Seoul
     driver-class-name: com.mysql.cj.jdbc.Driver
-    # username, password는 secret에서 관리
 
   jpa:
     hibernate:
