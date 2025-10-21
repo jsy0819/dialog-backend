@@ -38,5 +38,16 @@ public class KaKaoUserInfo implements SocialUserInfo {
         if (properties == null) return null;
         return (String) properties.get("profile_image");
     }
+    @Override
+	public String getProvider() {
+		// 소셜 로그인 제공자는 "kakao" 입니다.
+		return "kakao";
+	}
+	
+	@Override
+	public Map<String, Object> getAttributes() {
+		// 원본 사용자 정보(attributes)를 반환합니다.
+		return this.attributes;
+	}
 
 }

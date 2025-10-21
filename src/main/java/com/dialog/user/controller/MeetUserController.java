@@ -76,8 +76,12 @@ public class MeetUserController {
          // JWT 토큰 발급 (이메일/권한 기반으로)
          String token = jwtTokenProvider.createToken(authentication);
          result.put("success", true);
-         result.put("token", token);                 // 클라이언트에 JWT 제공
+         result.put("token", token);                 // 클라이언트에 JWT 제공        
          result.put("message", "로그인 성공");
+         result.put("user", Map.of(
+                 "name", user.getName(),
+                 "email", user.getEmail()
+             ));
          log.info("Login API 응답 result: {}", result); // 서버 로그로 검증
          return ResponseEntity.ok(result);             // 성공 시: 토큰 포함하여 JSON 반환
      } catch (IllegalStateException e) {

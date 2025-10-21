@@ -34,13 +34,14 @@ public class OAuth2AuthenticationSuccessHandlerJWT extends SimpleUrlAuthenticati
 	    try {
 	        // JWT 토큰 생성
 	        String token = jwtTokenProvider.createToken(authentication);
-
+	        log.info("발급된 JWT 토큰 : {}", token);
 	        // JWT를 쿠키에 저장
 	        Cookie jwtCookie = new Cookie("jwt", token);
 	        jwtCookie.setPath("/");
 	        jwtCookie.setHttpOnly(false);  // JS 접근 가능 (운영 환경에서는 true 권장)
 	        jwtCookie.setSecure(false);
 	        jwtCookie.setMaxAge(60 * 60 * 24); // 1일
+	        log.info("JWT 쿠키 생성 및 설정 준비 중");
 	        response.addCookie(jwtCookie);
 	        log.info("서버에서 JWT 쿠키 설정 완료");
 
@@ -48,6 +49,7 @@ public class OAuth2AuthenticationSuccessHandlerJWT extends SimpleUrlAuthenticati
 	        // 추후 실제 사용 URL 로 변경시 secret.yml 작업 필요
 	        String redirectUrl = "http://localhost:5500/home.html";
 	        getRedirectStrategy().sendRedirect(request, response, redirectUrl);
+	        log.info("리다이렉트 완료 : {}", redirectUrl);
 
 	    } catch (IOException e) {
 	        log.error("리다이렉트 중 IO 오류 발생: {}", e.getMessage(), e);
@@ -55,10 +57,10 @@ public class OAuth2AuthenticationSuccessHandlerJWT extends SimpleUrlAuthenticati
 	        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Redirect 의 실패했습니다. ");
 	    } catch (RuntimeException e) {
 	        log.error("JWT 생성 중 오류: {}", e.getMessage(), e);
-	        response.sendRedirect("/login?error=jwt_error");
+	        response.sendRedirect("/login");
 	    } catch (Exception e) {
 	        log.error("알 수 없는 오류 발생: {}", e.getMessage(), e);
-	        response.sendRedirect("/login?error=jwt_error");
+	        response.sendRedirect("/login");
 	    }
 	}
 	
