@@ -3,23 +3,18 @@ server:
 
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: jdbc:mysql://localhost:3306/your_db_name?serverTimezone=Asia/Seoul
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # username, password는 secret에서 관리
 
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+        dialect: org.hibernate.dialect.MySQL8Dialect
 
   thymeleaf:
     cache: false
@@ -29,19 +24,22 @@ spring:
       client:
         registration:
           google:
+            user-name-attribute: sub
             scope:
-              - openid
               - profile
               - email
           kakao:
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-            scope:
-              - profile_nickname
-              - account_email
+            scope: [profile_nickname, account_email]
             client-authentication-method: client_secret_post
             client-name: Kakao
         provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: sub
           kakao:
             authorization-uri: https://kauth.kakao.com/oauth/authorize
             token-uri: https://kauth.kakao.com/oauth/token
@@ -49,9 +47,9 @@ spring:
             user-name-attribute: id
 
   profiles:
-    active: secret
+    include: secret
 
 logging:
   level:
-    com.example.demo.JWT: DEBUG
-    com.example.demo.oauth2: DEBUG
+    com.dialog.security.jwt: DEBUG
+    com.dialog.security.oauth2: DEBUG

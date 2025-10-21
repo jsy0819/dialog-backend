@@ -17,6 +17,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import org.springframework.stereotype.Component;
 
+import com.dialog.security.oauth2.CustomOAuth2User;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 
@@ -24,7 +26,9 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.io.DecodingException;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
 import lombok.extern.slf4j.Slf4j;
 
 @Component
@@ -46,22 +50,38 @@ public class JwtTokenProvider {
 
     // JWT 토큰 발급 메서드: 인증객체 받으면 토큰 생성하여 반환
     public String createToken(Authentication authentication) {
-        // Spring Security 인증객체에서 모든 권한 추출("ROLE_USER" 등)
         String authorities = authentication.getAuthorities()
                 .stream().map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
         long now = (new Date()).getTime();
         Date validity = new Date(now + this.validityInMilliseconds);
 
-        // JWT 빌더: subject(이메일), 권한, 만료시간 셋업 → 서명 → String 토큰 반환
-        return Jwts.builder()
-                .subject(authentication.getName())          // 이메일 등 사용자 PK
-                .claim("auth", authorities)                 // 사용자 권한정보
-                .signWith(key)                              // 암호화/서명
-                .expiration(validity)                       // 만료시간
-                .compact();                                 // 최종 JWT 문자열 반환
-    }
+        Object principal = authentication.getPrincipal();
+        String name = "";
+        String email = "";
 
+        if (principal instanceof CustomOAuth2User) {
+            log.info("principal.getname() = {}", ((CustomOAuth2User) principal).getname());
+            log.info("principal.getEmail() = {}", ((CustomOAuth2User) principal).getEmail());
+            name = ((CustomOAuth2User) principal).getname();
+            email = ((CustomOAuth2User) principal).getEmail();
+            log.info("principal class: " + principal.getClass().getName());
+        } else if (principal instanceof UserDetails) {
+            name = ((UserDetails) principal).getUsername();
+            email = "";
+        } else if (principal instanceof String) {
+            name = (String) principal;
+        }
+
+        return Jwts.builder()
+                .subject(authentication.getName())
+                .claim("auth", authorities)
+                .claim("name", name)
+                .claim("email", email)
+                .signWith(key)
+                .expiration(validity)
+                .compact();
+    }
     // JWT 토큰을 파싱해서 인증객체(Authentication)로 복원하는 메서드
     public Authentication getAuthentication(String token) {
         log.info("JWT에서 인증 정보 추출 시작");
@@ -111,11 +131,11 @@ public class JwtTokenProvider {
                 .parseSignedClaims(token);
             System.out.println("JWT 토큰 검증 성공!");
             return true;
-        } catch (io.jsonwebtoken.security.SignatureException e) {
+        } catch (SignatureException e) {
             log.warn("JWT 서명 검증 실패: " + e.getMessage());
-        } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
+        } catch (SecurityException | MalformedJwtException e) {
             log.warn("잘못된 JWT 시그니쳐입니다. : " + e.getMessage());
-        } catch (io.jsonwebtoken.io.DecodingException e) {
+        } catch (DecodingException e) {
             log.warn("JWT 디코딩 실패: " + e.getMessage());
         } catch (ExpiredJwtException e) {
             log.info("만료된 토큰이니 재발급이 필요합니다. : " + e.getMessage());

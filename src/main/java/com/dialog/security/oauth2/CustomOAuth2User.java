@@ -27,46 +27,68 @@ public class CustomOAuth2User implements OAuth2User {
  // 내부 도메인 사용자 엔티티
 	private final MeetUser meetuser;
 
- // 생성자: 외부 OAuth2 정보와 내부 사용자 엔티티를 함께 묶음//
-public CustomOAuth2User(Collection<? extends GrantedAuthority> authorities, Map<String, Object> attributes,
-         String nameAttributeKey, MeetUser meetuser) {
-     this.authorities = authorities;
-     this.attributes = attributes;
-     this.nameAttributeKey = nameAttributeKey;
-     this.meetuser = meetuser;
- }
-
- // OAuth2 공급자로부터 받은 사용자 원본 속성 반환
- @Override
- public Map<String, Object> getAttributes() {
-     return attributes;
- }
-
- // 사용자 권한 반환 (Security 인증 권한)
- @Override
- public Collection<? extends GrantedAuthority> getAuthorities() {
-     return authorities;
- }
-
- // OAuth2 유저 식별자 반환
- @Override
- public String getName() {
-     Object id = attributes.get("id");
-     return (id != null) ? String.valueOf(id) : null;
- }
-
- // 내부 도메인 사용자 엔티티 Getter
- public MeetUser getMeetuser() {
-     return meetuser;
- }
-
- // 도메인 유저 이름 편리 메서드
- public String getname() {
-     return meetuser.getName();
- }
-
- // 도메인 유저 프로필 이미지 URL 편리 메서드
- public String getProfileImgUrl() {
-     return meetuser.getProfileImgUrl();
- }
-}
+	 // 생성자: 외부 OAuth2 정보와 내부 사용자 엔티티를 함께 묶음//
+	public CustomOAuth2User(Collection<? extends GrantedAuthority> authorities, Map<String, Object> attributes,
+	         String nameAttributeKey, MeetUser meetuser) {
+	     this.authorities = authorities;
+	     this.attributes = attributes;
+	     this.nameAttributeKey = nameAttributeKey;
+	     this.meetuser = meetuser;
+	 }
+	
+	 // OAuth2 공급자로부터 받은 사용자 원본 속성 반환
+	 @Override
+	 public Map<String, Object> getAttributes() {
+	     return attributes;
+	 }
+	
+	 // 사용자 권한 반환 (Security 인증 권한)
+	 @Override
+	 public Collection<? extends GrantedAuthority> getAuthorities() {
+	     return authorities;
+	 }
+	
+	 // OAuth2 유저 식별자 반환
+	 @Override
+	 public String getName() {
+		    // 실명 우선 반환: MeetUser의 name → OAuth2 attributes의 name → id
+		    if (meetuser != null && meetuser.getName() != null) {
+		        return meetuser.getName();
+		    }
+		    Object name = attributes.get("name");
+		    if (name != null) {
+		        return String.valueOf(name);
+		    }
+		    Object email = attributes.get("email");
+		    if (email != null) {
+		        return String.valueOf(email);
+		    }
+		    Object id = attributes.get("id");
+		    return (id != null) ? String.valueOf(id) : null;
+	}
+	 
+	//이메일 Getter (편의)
+	public String getEmail() {
+	  if (meetuser != null && meetuser.getEmail() != null) {
+	      return meetuser.getEmail();
+	  }
+	  Object email = attributes.get("email");
+	  return (email != null) ? String.valueOf(email) : null;
+	}
+	
+	
+	 // 내부 도메인 사용자 엔티티 Getter
+	 public MeetUser getMeetuser() {
+	     return meetuser;
+	 }
+	
+	 // 도메인 유저 이름 편리 메서드
+	 public String getname() {
+	     return meetuser.getName();
+	 }
+	
+	 // 도메인 유저 프로필 이미지 URL 편리 메서드
+	 public String getProfileImgUrl() {
+	     return meetuser.getProfileImgUrl();
+	 }
+	}

@@ -11,6 +11,7 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.dialog.security.oauth2.CustomOAuth2User;
 import com.dialog.security.oauth2.SocialUserInfo;
@@ -18,9 +19,12 @@ import com.dialog.security.oauth2.SocialUserInfoFactory;
 import com.dialog.user.domain.MeetUser;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
     private final MeetUserRegistrationService registrationService;
@@ -28,12 +32,14 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
         // 1. 기본 DefaultOAuth2UserService를 사용해 외부 OAuth 공급자로부터 사용자 정보를 조회
+    	log.info("==== CustomOAuth2UserService.loadUser() 호출됨! ====");
         DefaultOAuth2UserService defaultService = new DefaultOAuth2UserService();
         OAuth2User oauth2User = defaultService.loadUser(userRequest);
+        log.info("==== 공급자 attributes: {}", oauth2User.getAttributes());
 
         // 2. 현재 로그인 진행중인 OAuth 공급자 식별 (google, kakao, naver 등)
         String registId = userRequest.getClientRegistration().getRegistrationId();
-
+        log.info("로그인 구분 : " +userRequest.getClientRegistration());
         // 3. 자동 로그인에 사용할 사용자의 ID 속성 이름 추출
         String userNameAttrName = userRequest.getClientRegistration()
                 .getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName();
@@ -43,6 +49,8 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                 registId, oauth2User.getAttributes()
         );
 
+        log.info("==== SocialUserInfo name: " + socialUserInfo.getName());
+        log.info("==== SocialUserInfo email: " + socialUserInfo.getEmail());
         // 5. 내부 DB에 사용자 정보 저장 또는 업데이트 (최종 로그인 시각 반영 등)
         MeetUser user = registrationService.saveOrUpdateSocialMember(socialUserInfo, registId);
 
