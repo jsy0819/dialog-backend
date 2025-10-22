@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.dialog.security.jwt.JwtTokenProvider;
 import com.dialog.security.oauth2.SocialUserInfo;
 import com.dialog.security.oauth2.SocialUserInfoFactory;
+import com.dialog.token.domain.RefreshTokenDto;
+import com.dialog.token.service.RefreshTokenServiceImpl;
 import com.dialog.user.domain.LoginDto;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.domain.MeetUserDto;
@@ -42,6 +44,7 @@ public class MeetUserController {
 
  private final MeetuserService meetuserService; // 비즈니스 로직: 회원 DB, 인증 등
  private final JwtTokenProvider jwtTokenProvider; // JWT 토큰 발급 역할
+ private final RefreshTokenServiceImpl refreshTokenService;
 
  // 1. 회원가입 (클라이언트가 POST /api/auth/signup로 JSON 데이터 전송)
  @PostMapping("/api/auth/signup")
@@ -67,25 +70,36 @@ public class MeetUserController {
  public ResponseEntity<?> login(@RequestBody LoginDto dto) {
      Map<String, Object> result = new HashMap<>();
      try {
-         // 서비스 계층에서 인증 검증 (DB 조회 + 비밀번호 체크)
+         // 1. 클라이언트가 전달한 이메일과 비밀번호로 사용자 인증 수행
          MeetUser user = meetuserService.login(dto.getEmail(), dto.getPassword());
-         // 인증 객체 생성 (Spring Security에서 권한 부여용)
+
+         // 2. Spring Security 인증 객체 생성 (사용자 이메일, 권한 정보 포함)
          Authentication authentication = new UsernamePasswordAuthenticationToken(
              user.getEmail(), null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
          );
-         // JWT 토큰 발급 (이메일/권한 기반으로)
+
+         // 3. 인증 정보를 기반으로 JWT 액세스 토큰 생성
          String token = jwtTokenProvider.createToken(authentication);
-         result.put("success", true);
-         result.put("token", token);                 // 클라이언트에 JWT 제공        
+
+         // 4. 리프레시 토큰 생성 및 DTO 변환 - 사용자 정보와 연동하여 DB에 저장됨
+         RefreshTokenDto refreshTokenDto = refreshTokenService.createRefreshTokenDto(user);
+
+         // 5. 클라이언트에게 반환할 응답 데이터 구성
+         result.put("success", true);  // 처리 성공 상태
+         result.put("token", token);   // 새로 발급된 JWT 액세스 토큰
+         result.put("refreshToken", refreshTokenDto.getRefreshToken());           // 리프레시 토큰 문자열
+         result.put("refreshTokenExpiresAt", refreshTokenDto.getExpiresAt());     // 리프레시 토큰 만료시간
          result.put("message", "로그인 성공");
+         // 사용자 기본 정보(name, email) JSON 형태로 포함
          result.put("user", Map.of(
                  "name", user.getName(),
                  "email", user.getEmail()
              ));
-         log.info("Login API 응답 result: {}", result); // 서버 로그로 검증
-         return ResponseEntity.ok(result);             // 성공 시: 토큰 포함하여 JSON 반환
+
+         // 6. 성공 응답으로 클라이언트에 JSON 반환
+         return ResponseEntity.ok(result);
      } catch (IllegalStateException e) {
-         // 로그인 실패(계정X, 비번오류 등)시
+         // 7. 인증 실패 시 에러 응답 생성
          result.put("success", false);
          result.put("message", e.getMessage());
          return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(result);

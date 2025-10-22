@@ -1,105 +1,143 @@
 package com.dialog.user.domain;
 
+import java.time.LocalDateTime;
+
+import org.hibernate.annotations.CreationTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-//권한(role) 컬럼이 없어서 권한 확장이 필요할 경우 엔티티에 role 컬럼이나 별도 Role 테이블 연동이 필요하다.
-
-//계정 상태(잠금, 비활성화, 만료) 컬럼이 없는데, 보안 강화 필요 시 추가 권장.
-
-//패스워드 길이 200자 지정은 넉넉하지만 비밀번호 암호화 정책에 따라 충분히 커버하는지 확인 필요.
-
-//SNS ID 필드 unique 설정이 필요하면 인덱스 및 제약 조건을 DB쪽에서 추가 고려.
-
+/**
+ * 사용자 계정 정보를 담는 엔티티 클래스.
+ * - 데이터베이스의 'user' 테이블과 직접 매핑되며, 애플리케이션의 핵심 데이터 모델입니다.
+ * - @Getter: Lombok을 통해 모든 필드의 Getter 메서드를 자동 생성합니다.
+ */
 @Entity
+@Table(name = "user")
 @Getter
-@Setter
-@Table(name = "meet_user")
 public class MeetUser {
 
-    // 1. 기본키 ID, 자동 증가 전략 사용
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // 유저에 대한 고유 id값
+    // --- 필드 순서 재정렬 ---
+    // 1. 기본키 (PK)
+    // 2. 계정 정보 (이메일, 비밀번호)
+    // 3. 사용자 개인 정보 (이름, 프로필 사진, 직무, 직급)
+    // 4. 소셜 로그인 정보
+    // 5. 메타 정보 (생성일)
 
-    // 2. 로그인 시 사용되는 사용자명. 반드시 유니크하며 널 불가, 길이는 최대 100자
-    @Column(nullable = false, length = 100, unique = true)
-    private String email;
+    /**
+     * 1. 기본키(Primary Key)
+     * - @Id: 이 필드가 테이블의 기본키임을 나타냅니다.
+     * - @GeneratedValue: 기본키 값을 데이터베이스가 자동으로 생성하도록 설정합니다. (Auto Increment)
+     */
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    // 3. 로그인 비밀번호, 길이는 최대 200자, 널 불가
-    @Column(nullable = false, length = 200)
-    private String password;
+    /**
+     * 2-1. 이메일 (로그인 ID)
+     * - @Column: 테이블의 컬럼에 매핑되는 필드임을 나타냅니다.
+     * - nullable = false: 이 컬럼은 null 값을 허용하지 않습니다. (필수값)
+     * - unique = true: 이 컬럼의 값은 테이블 내에서 유일해야 합니다.
+     */
+	@Column(nullable = false, length = 100, unique = true)
+	private String email;
 
-    // 4. 사용자 이름 (실명)
-    @Column(nullable = false, length = 50)
-    private String name;
-    
-    // 5. 부서명, 선택적 필드
-    @Column(length = 200)
-    private String department;
+    /**
+     * 2-2. 비밀번호
+     * - 암호화된 형태로 저장되므로 길이를 넉넉하게 255자로 설정합니다.
+     */
+	@Column(nullable = false, length = 255)
+	private String password;
 
-    // 6. 직급, 선택적 필드
-    @Column(length = 50)
-    private String position;
+    /**
+     * 3-1. 사용자 실명
+     */
+	@Column(nullable = false, length = 100)
+	private String name;
 
-    // 7. 소셜 로그인 플랫폼 구분용(google, kakao 등)
-    @Column(length = 50)
-    private String socialType;
+    /**
+     * 3-2. 프로필 이미지 URL
+     * - 사용자가 프로필 사진을 설정했을 경우, 해당 이미지의 URL이 저장됩니다.
+     */
+	@Column(length = 200)
+	private String profileImgUrl;
 
-    // 8. 사용자 프로필 이미지 URL
-    @Column(length = 200)
-    private String profileImgUrl;
+    /**
+     * 3-3. 직무 (Job)
+     * - @Enumerated(EnumType.STRING): Enum 타입을 DB에 저장할 때, 순서(ORDINAL)가 아닌 이름(STRING)으로 저장합니다.
+     * (이유: 중간에 Enum 순서가 바뀌어도 DB 데이터가 깨지지 않아 훨씬 안전합니다.)
+     */
+	@Enumerated(EnumType.STRING)
+	@Column(length = 50, nullable = false)
+	private Job job = Job.NONE; // 기본값으로 '정해지지 않음'을 설정
 
-    // 9. 소셜 로그인 시 사용하는 고유 SNS 아이디
-    @Column(length = 100)
-    private String snsId;
+    /**
+     * 3-4. 직급 (position)
+     * - 직무(Job) 필드와 동일한 이유로 EnumType.STRING을 사용합니다.
+     */
+	@Enumerated(EnumType.STRING)
+	@Column(length = 50, nullable = false)
+	private Position position = Position.NONE; // 기본값으로 '정해지지 않음'을 설정
 
-    // 10. 기본 생성자 (JPA 필요)
-    public MeetUser() {}
+    /**
+     * 4-1. 소셜 로그인 타입 (e.g., "google", "kakao")
+     */
+	@Column(length = 50)
+	private String socialType;
 
-    // 11. 모든 필드를 초기화하는 생성자 (테스트나 수동 객체 생성용)
-    @Builder
-    public MeetUser(Long id, String email, String password, String name, String department, String position,
-                    String socialType, String profileImgUrl, String snsId) {
-        this.id = id;
-        this.email = email;
-        this.password = password;
-        this.name = name;
-        this.department = department;
-        this.position = position;
-        this.socialType = socialType;
-        this.profileImgUrl = profileImgUrl;
-        this.snsId = snsId;
-    }
+    /**
+     * 4-2. 소셜 로그인 고유 ID
+     * - 각 소셜 플랫폼에서 제공하는 사용자의 고유 식별자입니다.
+     */
+	@Column(length = 100)
+	private String snsId;
 
-    // 12. 소셜 로그인 시 기존 사용자가 재로그인하면 이름과 프로필 이미지 URL만 업데이트 할 수 있는 메서드
-    public void updateSocialInfo(String name, String profileImgUrl, String snsId, String socialType) {
-       this.name = name;
-       this.profileImgUrl = profileImgUrl;
-       this.snsId = snsId;
-       this.socialType = socialType;
-    }
-    
-    // 계정 잠금, 비활성화 필요할시 사용.
-//    @Column(nullable = false)
-//    private boolean accountExpired = false;
-//
-//    @Column(nullable = false)
-//    private boolean accountLocked = false;
-//
-//    @Column(nullable = false)
-//    private boolean credentialsExpired = false;
-//
-//    @Column(nullable = false)
-//    private boolean disabled = false;
-    
+    /**
+     * 5. 계정 생성일
+     * - @CreationTimestamp: 엔티티가 처음 저장될 때의 시간이 자동으로 기록됩니다.
+     * - updatable = false: 한 번 생성된 후에는 값이 수정되지 않습니다.
+     */
+	@CreationTimestamp
+	@Column(name = "created_at", nullable = false, updatable = false)
+	private LocalDateTime createdAt;
+
+    /**
+     * JPA를 위한 기본 생성자.
+     * - JPA가 프록시 객체를 생성할 때 이 생성자를 사용합니다.
+     * - `protected`로 선언하여 외부에서 `new MeetUser()`와 같이 무분별하게 객체를 생성하는 것을 방지합니다.
+     */
+	protected MeetUser() {
+	}
+
+	/**
+	 * @Builder: 빌더 패턴으로 객체를 생성할 수 있게 합니다.
+	 *  - 생성자의 파라미터 순서와 상관없이 명확하게 값을 할당할 수 있어 안전합니다.
+	 *  - 일반 회원가입 시에는 email, password, name만 사용됩니다.
+	 */
+	@Builder
+	public MeetUser(String email, String password, String name, String socialType, String snsId, String profileImgUrl) {
+		this.email = email;
+		this.password = password;
+		this.name = name;
+		this.socialType = socialType;
+		this.snsId = snsId;
+		this.profileImgUrl = profileImgUrl;
+	}
+
+	/**
+	 * 소셜 로그인 시, 기존 회원이 재로그인하면 프로필 정보(이름, 사진)를 업데이트하는 메서드.
+	 */
+	public void updateSocialInfo(String name, String profileImgUrl) {
+		this.name = name;
+		this.profileImgUrl = profileImgUrl;
+	}
+
 }

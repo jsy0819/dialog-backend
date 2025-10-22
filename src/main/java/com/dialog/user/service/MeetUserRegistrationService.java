@@ -43,9 +43,7 @@ public class MeetUserRegistrationService {
 
     	        existingUser.updateSocialInfo(
     	            socialUserInfo.getName(),
-    	            socialUserInfo.getProfileImageUrl(),
-    	            socialId,
-    	            provider
+    	            socialUserInfo.getProfileImageUrl()
     	        );
     	        log.info("기존 회원 발견 - 기존 이름: {}, 기존 이메일: {}", existingUser.getName(), existingUser.getEmail());
 
@@ -53,17 +51,14 @@ public class MeetUserRegistrationService {
     	    }
     	    // 4. 신규 사용자라면 새로 사용자 생성 후 저장
     	    else {
-    	        MeetUser newUser = new MeetUser();
-    	        // 4-1. 이메일 기반 고유 사용자명 생성(중복 체크 포함)
-    	        newUser.setEmail(generateUniqueEmail(socialUserInfo.getEmail()));
-    	        newUser.setName(socialUserInfo.getName());
-    	        // 4-2. 임시 비밀번호를 BCrypt 인코딩하여 저장
-    	        newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-    	        // 4-3. 소셜 ID, SNS 종류, 프로필 이미지 URL 설정
-    	        newUser.setSnsId(socialId);
-    	        newUser.setSocialType(provider);
-    	        newUser.setProfileImgUrl(socialUserInfo.getProfileImageUrl());
-    	        
+    	    	 MeetUser newUser = MeetUser.builder()
+                         .email(generateUniqueEmail(socialUserInfo.getEmail()))
+                         .name(socialUserInfo.getName())
+                         .password(passwordEncoder.encode(UUID.randomUUID().toString())) // 임시 비밀번호
+                         .snsId(socialId)
+                         .socialType(provider)
+                         .profileImgUrl(socialUserInfo.getProfileImageUrl())
+                         .build(); 	        
                 log.info("신규 사용자 생성 - 이름: {}, 이메일: {}", newUser.getName(), newUser.getEmail());
     	        return meetUserRepository.save(newUser);
     	    }

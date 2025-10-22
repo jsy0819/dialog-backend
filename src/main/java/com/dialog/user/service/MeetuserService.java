@@ -43,8 +43,6 @@ public class MeetuserService {
                 .email(dto.getEmail())
                 .password(passwordEncoder.encode(dto.getPassword()))
                 .name(dto.getName())
-                .department(dto.getDepartment())
-                .position(dto.getPosition())
                 .socialType(dto.getSocialType())
                 .profileImgUrl(dto.getProfileImgUrl())
                 .snsId(dto.getSnsId())
