@@ -1,5 +1,6 @@
 package com.dialog.security;
 
+import static org.springframework.security.config.Customizer.withDefaults;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -33,6 +34,7 @@ public class SecurityConfigJWT {
     @Bean
     public SecurityFilterChain meetFilterChain(HttpSecurity http) throws Exception {
         return http
+    		.cors(withDefaults()) // CORS 허용	
             // 1. CSRF 설정: 특정 경로(h2-console, /api/**)는 CSRF 보호 안함
             .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**", "/api/**"))
             

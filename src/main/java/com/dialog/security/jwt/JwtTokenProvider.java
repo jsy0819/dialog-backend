@@ -50,23 +50,27 @@ public class JwtTokenProvider {
 
     // JWT 토큰 발급 메서드: 인증객체 받으면 토큰 생성하여 반환
     public String createToken(Authentication authentication) {
+    	// 인증객체에 포함된 권한(roles)을 ","로 이어붙여 claim에 저장
         String authorities = authentication.getAuthorities()
                 .stream().map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
         long now = (new Date()).getTime();
         Date validity = new Date(now + this.validityInMilliseconds);
-
+        
+        // principal 객체에서 사용자 이름/이메일을 추출
         Object principal = authentication.getPrincipal();
         String name = "";
         String email = "";
 
         if (principal instanceof CustomOAuth2User) {
+        	// 소셜 사용자라면 name/email을 각각 추출
             log.info("principal.getname() = {}", ((CustomOAuth2User) principal).getname());
             log.info("principal.getEmail() = {}", ((CustomOAuth2User) principal).getEmail());
             name = ((CustomOAuth2User) principal).getname();
             email = ((CustomOAuth2User) principal).getEmail();
             log.info("principal class: " + principal.getClass().getName());
         } else if (principal instanceof UserDetails) {
+        	// 일반 로그인: username이 실제 email이어야 인증 흐름이 안전!
             name = ((UserDetails) principal).getUsername();
             email = "";
         } else if (principal instanceof String) {
@@ -74,12 +78,12 @@ public class JwtTokenProvider {
         }
 
         return Jwts.builder()
-                .subject(authentication.getName())
-                .claim("auth", authorities)
-                .claim("name", name)
-                .claim("email", email)
-                .signWith(key)
-                .expiration(validity)
+                .subject(email)           		// subject(기본 피식별자)는 email로 지정 (username이 email이면 OK)
+                .claim("auth", authorities) 	// roles/권한 목록을 claim에 저장
+                .claim("name", name)      		// 사용자 이름을 claim에 저장
+                .claim("email", email)    		// 사용자 이메일을 claim에 저장
+                .signWith(key)            		// 서명에 SecretKey 사용
+                .expiration(validity)     		// 만료시간 지정
                 .compact();
     }
     // JWT 토큰을 파싱해서 인증객체(Authentication)로 복원하는 메서드
@@ -108,6 +112,7 @@ public class JwtTokenProvider {
             // 인증 정보 객체 생성해서 반환 (principal/토큰/권한)
             UserDetails principal = new User(claims.getSubject(), "", authorities);
             log.info("인증 정보 생성 완료");
+         // 최종적으로 Spring Security에서 사용할 Authentication 반환
             return new UsernamePasswordAuthenticationToken(principal, token, authorities);
         } catch (Exception e) {
             log.info("JWT 인증 정보 추출 중 오류가 발생했습니다. : " + e.getMessage());
