@@ -1,21 +1,28 @@
 package com.dialog.meeting.service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dialog.keyword.domain.Keyword;
+import com.dialog.keyword.repository.KeywordRepository;
 import com.dialog.meeting.domain.Meeting;
 // 👈 [수정] DTO 패키지 경로로 변경
 import com.dialog.meeting.domain.MeetingCreateRequestDto;
 import com.dialog.meeting.domain.MeetingCreateResponseDto;
 import com.dialog.meeting.repository.MeetingRepository;
+import com.dialog.participant.domain.Participant;
+import com.dialog.participant.repository.ParticipantRepository;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.repository.MeetUserRepository;
 
 import lombok.RequiredArgsConstructor;
 
-/**
- * 회의(Meeting) 관련 비즈니스 로직을 처리하는 서비스 클래스
- */
+
 @Service
 @RequiredArgsConstructor // final 레포지토리 필드 생성자 주입
 @Transactional(readOnly = true) // (기본) 읽기 전용 트랜잭션 (조회 성능 최적화)
@@ -23,36 +30,97 @@ public class MeetingService {
 
     private final MeetingRepository meetingRepository;
     private final MeetUserRepository meetUserRepository; 
+    private final ParticipantRepository participantRepository;
+    private final KeywordRepository keywordRepository;
 
-    /**
-     * 새로운 회의를 생성합니다. (쓰기 작업)
-     */
-    @Transactional // 이 메서드는 DB에 쓰기 작업을 하므로 별도 @Transactional 명시
-    public MeetingCreateResponseDto createMeeting(MeetingCreateRequestDto requestDto, Long hostUserId) {
+    // 회의 생성
+    @Transactional 
+    public MeetingCreateResponseDto createMeeting(MeetingCreateRequestDto requestDto, Long hostUserId) throws IllegalAccessException {
 
         // 1. 주최자(User) 엔티티 조회
         MeetUser hostUser = meetUserRepository.findById(hostUserId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다.")); // .get() 대신 예외 처리
 
-        // 2. 👈 [수정] 빌더 패턴을 사용해 DTO를 Meeting 엔티티로 변환
+        // 2. 빌더 패턴을 사용해 DTO를 Meeting 엔티티로 변환
+        LocalDateTime scheduledAt;
+        try {
+            scheduledAt = LocalDateTime.parse(requestDto.getScheduledAt()); // 기본 파서: yyyy-MM-ddTHH:mm:ss에 맞게
+        } catch (DateTimeParseException e) {
+            throw new IllegalAccessException("잘못된 날짜 형식입니다. yyyy-MM-dd'T'HH:mm:ss 형식으로 보내야 합니다.");
+        }
         Meeting newMeeting = Meeting.builder()
                 .title(requestDto.getTitle())
                 .description(requestDto.getDescription())
-                .scheduledAt(requestDto.getScheduledAt())
+                .scheduledAt(scheduledAt)
                 .hostUser(hostUser)
-                // .status(Status.SCHEDULED) // 엔티티의 @Builder.Default로 자동 설정됨
                 .build();
 
-        // 3. (저장) 레포지토리를 사용해 엔티티를 DB에 저장 (영속화)
+        // 3. 엔티티를 DB에 저장
         Meeting savedMeeting = meetingRepository.save(newMeeting);
 
-        // 4. (부가 로직) DTO로 받은 participantNames와 keywords를
-        //    'Participant' 엔티티와 'Keyword' 엔티티로 변환하여 저장
-        //    (TODO: 관련 서비스 로직 추가 위치)
+        // 4. 참석자 등록
+        List<Participant> participantEntities = new ArrayList<>();
+        for (String speakerId : requestDto.getParticipants()) {
+            Participant participant = Participant.builder()
+                .meeting(savedMeeting)
+                .speakerId(speakerId)
+                .name(speakerId) // 이름이 필요하면 speakerId->이름 변환 로직 구현
+                .build();
+            participantEntities.add(participant);
+        }
+        participantRepository.saveAll(participantEntities);
+        
+        // 5. 키워드 등록 및 ManyToMany 연관관계 설정
+        // 기존 키워드 재사용(중복사용방지) , 없으면 새로 생성하여 저장
+        List<Keyword> keywordEntities = new ArrayList<>();
+        if (requestDto.getKeywords() != null) {
+            for (String keywordName : requestDto.getKeywords()) {
+            	// keywordRepository.findByName(keywordName) -> DB 에 해당 키워드가 있는지 먼저 조회
+                Keyword keyword = keywordRepository.findByName(keywordName)
+                		// 없으면 새로 생성해서 DB 에 저장후 반환
+                    .orElseGet(() -> keywordRepository.save(Keyword.builder().name(keywordName).build()));
+                keywordEntities.add(keyword);
+            }
+            savedMeeting.getKeywords().addAll(keywordEntities);
+            meetingRepository.save(savedMeeting);
+        }
 
-        // 5. (변환) 저장된 엔티티를 Response DTO로 변환하여 컨트롤러에 반환
-        return new MeetingCreateResponseDto(savedMeeting);
+        // 6. 응답 반환 세팅 (이름/키워드 스트링값만 추출)
+        List<String> participantIds = new ArrayList<>();
+        for (Participant participant : participantEntities) {
+            participantIds.add(participant.getSpeakerId());
+        }
+
+        List<String> keywordNames = new ArrayList<>();
+        for (Keyword k : keywordEntities) {
+            keywordNames.add(k.getName());
+        }
+
+        return new MeetingCreateResponseDto(savedMeeting, participantIds, keywordNames);
+        
+    }
+	public MeetingCreateResponseDto findById(Long meetingId) {
+        // 1. 회의 조회
+        Meeting meeting = meetingRepository.findById(meetingId)
+            .orElseThrow(() -> new IllegalArgumentException("회의를 찾을 수 없습니다."));
+        
+        // 2. 해당 회의 id 값을 통해 참가자 조회
+        List<Participant> participantEntities = participantRepository.findByMeetingId(meetingId);
+        // 3. 참가자의 이름만 뽑아서 List 로 추출
+        List<String> participants = new ArrayList<>();
+        for (Participant p : participantEntities) {
+            participants.add(p.getSpeakerId());
+        }
+
+        // 4. 해당 회의 id 값을 통해 하이라이트 조회
+        List<Keyword> highlightEntities = keywordRepository.findByMeetingsId(meetingId);
+        // 5. 하이라이트의 키워드만 뽑아서 List 로 추출
+        List<String> keywords = new ArrayList<>();
+        for (Keyword h : highlightEntities) {
+            keywords.add(h.getName());
+        }
+        // 6. List 로 추출한 키워드, 참가자 이름을 DTO로 반환
+        return new MeetingCreateResponseDto(meeting, participants, keywords);
     }
 
-    // TODO: 회의 조회, 수정, 삭제 등의 다른 서비스 메소드들...
 }
