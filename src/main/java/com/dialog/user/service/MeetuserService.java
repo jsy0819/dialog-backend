@@ -6,11 +6,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.dialog.security.oauth2.SocialUserInfo;
 import com.dialog.security.oauth2.SocialUserInfoFactory;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.domain.MeetUserDto;
+import com.dialog.user.domain.UserSettingsUpdateDto;
 import com.dialog.user.repository.MeetUserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -59,33 +61,14 @@ public class MeetuserService {
 //         - UserDetails면 username(email)로 회원 조회(DB)
 //      3) 최종적으로 MeetUserDto로 변환해 반환
     
+    // 현재 로그인한 유저 정보 조회 (SecurityContext 기반)
     public MeetUserDto getCurrentUser(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new IllegalStateException("로그인 세션 없음");
-        }
-        Object principal = authentication.getPrincipal();
-        MeetUser user;
-        // 소셜 로그인 (OAuth2User) 처리
-        if (principal instanceof OAuth2User) {
-            OAuth2AuthenticationToken authToken = (OAuth2AuthenticationToken) authentication;
-            String provider = authToken.getAuthorizedClientRegistrationId();
-            OAuth2User oAuth2User = (OAuth2User) principal;
-            SocialUserInfo info = SocialUserInfoFactory.getSocialUserInfo(provider, oAuth2User.getAttributes());
-            String snsId = provider + "_" + info.getId();
-            user = meetUserRepository.findBySnsId(snsId)
-                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
-        // 일반 로그인 (UserDetails) 처리
-        } else if (principal instanceof UserDetails) {
-            String username = ((UserDetails) principal).getUsername();
-            user = meetUserRepository.findByEmail(username)
-                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
-        } else {
-            throw new IllegalArgumentException("알 수 없는 인증 방식입니다.");
-        }
-        // DTO -> Entity 변환해 반환
+        // 1. 공용 메서드를 호출해 사용자 엔티티를 가져옴
+        MeetUser user = getAuthenticatedUser(authentication);
+        
+        // 2. 엔티티를 DTO로 변환해 반환
         return MeetUserDto.fromEntity(user);
     }
-
     
 //      로그인 검증
 //      @param email 로그인 아이디(이메일)
@@ -104,4 +87,50 @@ public class MeetuserService {
         }
         return user; // 인증 성공 시 회원 정보 반환
     }
+    
+    // '설정' 페이지에서 직무/직급 업데이트
+    @Transactional // 데이터를 수정하므로 트랜잭션 필수!
+    public void updateUserSettings(Authentication authentication, UserSettingsUpdateDto dto) {
+        
+        // 1. (재사용) 현재 인증된 사용자 엔티티를 조회
+        MeetUser user = getAuthenticatedUser(authentication);
+
+        // 2. MeetUser 엔티티 내부의 업데이트 메서드 호출
+        user.updateSettings(dto.getJob(), dto.getPosition());
+        
+        // 3. @Transactional 어노테이션 덕분에
+        //    메서드가 끝나면 변경된 내용을 감지하여 자동으로 DB에 UPDATE 쿼리 실행
+        //    (즉, meetUserRepository.save(user) 를 호출할 필요 없음)
+    }
+    
+    // getCurrentUser와 updateUserSettings에서 공통으로 사용하는
+    // '인증된 사용자 엔티티 조회' 로직
+    private MeetUser getAuthenticatedUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalStateException("로그인 세션 없음");
+        }
+        Object principal = authentication.getPrincipal();
+        MeetUser user;
+        
+        // 소셜 로그인 (OAuth2User) 처리
+        if (principal instanceof OAuth2User) {
+            OAuth2AuthenticationToken authToken = (OAuth2AuthenticationToken) authentication;
+            String provider = authToken.getAuthorizedClientRegistrationId();
+            OAuth2User oAuth2User = (OAuth2User) principal;
+            SocialUserInfo info = SocialUserInfoFactory.getSocialUserInfo(provider, oAuth2User.getAttributes());
+            String snsId = provider + "_" + info.getId();
+            user = meetUserRepository.findBySnsId(snsId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+        
+        // 일반 로그인 (UserDetails) 처리
+        } else if (principal instanceof UserDetails) {
+            String username = ((UserDetails) principal).getUsername();
+            user = meetUserRepository.findByEmail(username)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+        } else {
+            throw new IllegalArgumentException("알 수 없는 인증 방식입니다.");
+        }
+        return user;
+    }
+    
 }

@@ -140,4 +140,13 @@ public class MeetUser {
 		this.profileImgUrl = profileImgUrl;
 	}
 
+	/**
+	 * '설정' 페이지에서 직무/직급 업데이트를 위한 메서드.
+	 * MeetuserService에서 호출됩니다.
+	 */
+	public void updateSettings(Job job, Position position) {
+		this.job = job;
+		this.position = position;
+	}
+
 }

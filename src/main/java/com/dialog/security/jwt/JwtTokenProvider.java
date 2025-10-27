@@ -73,7 +73,8 @@ public class JwtTokenProvider {
             email = ((UserDetails) principal).getUsername();
         } else if (principal instanceof String) {
             name = (String) principal;
-            email = "";  // 필요시 처리
+            email = (String) principal;
+            // email = ""; // 필요시 처리
         }
         
 

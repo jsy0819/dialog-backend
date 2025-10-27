@@ -17,6 +17,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,6 +30,7 @@ import com.dialog.token.service.RefreshTokenServiceImpl;
 import com.dialog.user.domain.LoginDto;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.domain.MeetUserDto;
+import com.dialog.user.domain.UserSettingsUpdateDto;
 import com.dialog.user.service.MeetuserService;
 
 import jakarta.validation.Valid;
@@ -116,5 +118,36 @@ public class MeetUserController {
 	         "email", dto.getEmail()
 	     ));	     
 	 }
-	 
+
+	// 4. '설정' 페이지에서 사용자 정보(직무/직급) 업데이트
+	// '저장하기' 버튼 클릭 시 /api/user/settings 로 PUT 요청
+	@PutMapping("/api/user/settings")
+	public ResponseEntity<?> updateUserSettings(Authentication authentication, // (필수) 누가 요청했는지 (인증)
+			@Valid @RequestBody UserSettingsUpdateDto dto // (필수) 수정할 내용 (job, position)
+	) {
+		Map<String, Object> result = new HashMap<>();
+		try {
+			// 1. 인증 정보가 없으면 거부 (혹시 모를 상황 대비)
+			if (authentication == null || !authentication.isAuthenticated()) {
+				result.put("success", false);
+				result.put("message", "인증되지 않은 사용자입니다.");
+				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(result);
+			}
+
+			// 2. 서비스 계층에 인증정보와 수정할 DTO를 넘겨 업데이트 위임
+			meetuserService.updateUserSettings(authentication, dto);
+
+			// 3. 성공 응답 반환
+			result.put("success", true);
+			result.put("message", "개인정보가 성공적으로 저장되었습니다.");
+			return ResponseEntity.ok(result);
+
+		} catch (Exception e) {
+			// 4. 실패(예: 사용자를 못찾음, 값 누락 등) 시 에러 응답
+			result.put("success", false);
+			result.put("message", e.getMessage());
+			return ResponseEntity.badRequest().body(result);
+		}
+	}
+
 }
