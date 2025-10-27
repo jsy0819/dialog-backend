@@ -2,10 +2,15 @@ package com.dialog.security.oauth2;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -13,6 +18,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import com.dialog.security.jwt.JwtTokenProvider;
 import com.dialog.token.domain.RefreshTokenDto;
 import com.dialog.token.service.RefreshTokenServiceImpl;
+import com.dialog.token.service.UserTokenServiceImpl;
 import com.dialog.user.domain.MeetUser;
 
 import jakarta.servlet.ServletException;
@@ -31,6 +37,8 @@ public class OAuth2AuthenticationSuccessHandlerJWT extends SimpleUrlAuthenticati
 	// AuthenticationSuccessHandler의 구현체. 
 	private final JwtTokenProvider jwtTokenProvider;
 	private final RefreshTokenServiceImpl refreshTokenService;
+	private final UserTokenServiceImpl userTokenService;
+	private final OAuth2AuthorizedClientService authorizedClientService;
 	
     @Value("${app.oauth2.redirect-uri}")
     String redirectUrl ;
@@ -52,15 +60,40 @@ public class OAuth2AuthenticationSuccessHandlerJWT extends SimpleUrlAuthenticati
 	        // 2. 사용자 정보 추출 (CustomOAuth2User 가정)
 	        CustomOAuth2User customUser = (CustomOAuth2User) authentication.getPrincipal();
 	        MeetUser user = customUser.getMeetuser();
+	        
+	        // 3. 구글 토큰 추출 및 저장 로직 추가 시작
+	        if (authentication instanceof OAuth2AuthenticationToken) {
+	            OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
 
-	        // 3. 리프레시 토큰 생성 및 DTO 획득
+	            // OAuth2AuthorizedClientService 주입 필요 (멤버 변수로 선언 후 생성자 주입)
+	            OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(
+	                oauthToken.getAuthorizedClientRegistrationId(),
+	                oauthToken.getName()
+	            );
+
+	            if (client != null) {
+	                String googleAccessToken = client.getAccessToken().getTokenValue();
+	                String googleRefreshToken = client.getRefreshToken() != null ? client.getRefreshToken().getTokenValue() : null;
+	                Instant expiresAtInstant = client.getAccessToken().getExpiresAt();
+	                LocalDateTime expiresAt = null;
+	                if (expiresAtInstant != null) {
+	                    expiresAt = LocalDateTime.ofInstant(expiresAtInstant, ZoneId.systemDefault());
+	                }
+	                // DB 저장용 서비스 호출 (별도 서비스 만들어서 구현)
+	                userTokenService.saveGoogleTokens(user.getId(), googleAccessToken, googleRefreshToken, expiresAt);
+
+	                log.info("구글 액세스 토큰 및 리프레시 토큰 저장 완료");
+	            }
+	        }
+
+	        // 4. 리프레시 토큰 생성 및 DTO 획득
 	        RefreshTokenDto refreshTokenDto = refreshTokenService.createRefreshTokenDto(user);
 	        String refreshToken = refreshTokenDto.getRefreshToken();  // 토큰 문자열
 	        LocalDateTime expiresAt = refreshTokenDto.getExpiresAt(); // 만료 시간
 	        log.info("발급된 리프레시 토큰: {}", refreshToken);
 	        log.info("리프레시 토큰 만료 시각: {}", expiresAt);
 
-	        // 4. 액세스 토큰 쿠키 설정
+	        // 5. 액세스 토큰 쿠키 설정
 	        Cookie accessTokenCookie = new Cookie("jwt", accessToken);
 	        accessTokenCookie.setPath("/");
 	        accessTokenCookie.setHttpOnly(true);  // JS 접근 차단
@@ -68,7 +101,7 @@ public class OAuth2AuthenticationSuccessHandlerJWT extends SimpleUrlAuthenticati
 	        accessTokenCookie.setMaxAge(60 * 60 * 24); // 1일
 	        response.addCookie(accessTokenCookie);
 
-	        // 5. 리프레시 토큰 쿠키 설정
+	        // 6. 리프레시 토큰 쿠키 설정
 	        Cookie refreshTokenCookie = new Cookie("refreshToken", refreshTokenDto.getRefreshToken());
 	        refreshTokenCookie.setPath("/");
 	        refreshTokenCookie.setHttpOnly(true);  // JS 접근 차단
@@ -81,7 +114,7 @@ public class OAuth2AuthenticationSuccessHandlerJWT extends SimpleUrlAuthenticati
 
 	        log.info("액세스 토큰 및 리프레시 토큰 쿠키 설정 완료");
 
-	        // 6. 프론트엔드 메인 페이지로 리다이렉트
+	        // 7. 프론트엔드 메인 페이지로 리다이렉트
 	        getRedirectStrategy().sendRedirect(request, response, redirectUrl);
 	        log.info("리다이렉트 완료 : {}", redirectUrl);
 

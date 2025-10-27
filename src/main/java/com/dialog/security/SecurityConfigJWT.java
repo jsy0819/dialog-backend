@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -30,6 +31,8 @@ public class SecurityConfigJWT {
 //    private final OAuth2AuthenticationSuccessHandler oAuth2successHandler;       // OAuth2 로그인 성공 핸들러
     private final CustomOAuth2UserService customOAuth2UserService;               // OAuth2UserService 커스텀 구현체
     private final JwtTokenProvider jwtTokenProvider;                             // JWT 토큰 생성/검증기
+    private final OAuth2AuthorizationRequestResolver customAuthorizationRequestResolver;
+
 
     @Bean
     public SecurityFilterChain meetFilterChain(HttpSecurity http) throws Exception {
@@ -60,13 +63,16 @@ public class SecurityConfigJWT {
             
             // 7. OAuth2 로그인 설정: 커스텀 서비스 및 성공/실패 핸들러 설정
             .oauth2Login(oauth2 -> oauth2
-                .loginPage("/login")                   // OAuth2 로그인 페이지 URL
-                .userInfoEndpoint(userInfo -> userInfo
-                    .userService(customOAuth2UserService)  // OAuth2 사용자 정보 서비스
-                )
-                .successHandler(oAuth2successHandler)   // 성공 시 처리 핸들러
-                .failureHandler(oAuth2faliureHandler)    // 실패 시 처리 핸들러
-            )
+            	    .loginPage("/login")
+            	    .userInfoEndpoint(userInfo -> userInfo
+            	        .userService(customOAuth2UserService)
+            	    )
+            	    .authorizationEndpoint(authz -> authz
+            	        .authorizationRequestResolver(customAuthorizationRequestResolver) 
+            	    )
+            	    .successHandler(oAuth2successHandler)
+            	    .failureHandler(oAuth2faliureHandler)
+            	)
             
             // 8. 로그아웃 비활성화 (필요시 활성화 가능)
             .logout(logout -> logout.disable())
