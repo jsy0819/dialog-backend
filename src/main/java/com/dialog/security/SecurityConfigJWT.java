@@ -36,7 +36,7 @@ public class SecurityConfigJWT {
         return http
     		.cors(withDefaults()) // CORS 허용	
             // 1. CSRF 설정: 특정 경로(h2-console, /api/**)는 CSRF 보호 안함
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**", "/api/**"))
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
             
             // 2. HTTP Basic 인증 비활성화
             .httpBasic(httpBasic -> httpBasic.disable())

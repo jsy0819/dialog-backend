@@ -31,7 +31,7 @@ public class OAuth2AuthenticationFailurHandler implements AuthenticationFailureH
 	       request.getSession().setAttribute("socialErrorMessage", errMsg);
 	       
 		   // 로그인 페이지로 리다이렉트
-	       response.sendRedirect("/login?social_error=true");
+	       response.sendRedirect("http://localhost:5500/login?social_error=true");
 
 				
 	}

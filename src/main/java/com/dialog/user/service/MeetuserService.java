@@ -24,17 +24,16 @@ public class MeetuserService {
 
     
 //      회원가입 처리 메서드
-//      @param dto 가입정보 DTO (이메일, 비번 등)
-//      흐름: 1) 약관 동의 체크 2) 이메일 중복 체크 3) 비번 암호화 및 DB저장
+//      가입정보 DTO (이메일, 비번 등)
+//      약관 동의 체크 -> 이메일 중복 체크 -> 비번 암호화 및 DB저장
 //      예외케이스 발생시: IllegalArgumentException, IllegalStateException 던짐 (글로벌 핸들러에서 catch됨)
-//      @throws Exception 가입에 실패 시 예외 발생
      
     public void signup(MeetUserDto dto) {
         // 1. 약관 동의 필수 검사
         if (dto.getTerms() == null || !dto.getTerms()) {
             throw new IllegalArgumentException("약관에 동의해야 가입할 수 있습니다.");
         }
-        // 2. 이메일 중복검사
+        // 2. 이메일 중복검사	
         if (meetUserRepository.existsByEmail(dto.getEmail())) {
             throw new IllegalStateException("이미 가입된 이메일입니다.");
         }
@@ -54,7 +53,7 @@ public class MeetuserService {
 //      현재 로그인한 유저 정보 조회 (SecurityContext 기반)
 //      @param authentication Spring Security 인증객체
 //      흐름:
-//       1) 인증 안됐으면 예외 발생
+//      1) 인증 안됐으면 예외 발생
 //      2) 소셜(OAuth2) 로그인과 일반 로그인 분기
 //         - OAuth2User면 provider, snsId로 회원 조회(DB)
 //         - UserDetails면 username(email)로 회원 조회(DB)
@@ -83,7 +82,7 @@ public class MeetuserService {
         } else {
             throw new IllegalArgumentException("알 수 없는 인증 방식입니다.");
         }
-        // Entity -> DTO 변환해 반환
+        // DTO -> Entity 변환해 반환
         return MeetUserDto.fromEntity(user);
     }
 

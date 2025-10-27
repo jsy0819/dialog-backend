@@ -114,8 +114,7 @@ public class MeetUserController {
 	     return ResponseEntity.ok(Map.of(
 	         "name", dto.getName(),
 	         "email", dto.getEmail()
-	         
-	     ));
-	     
+	     ));	     
 	 }
+	 
 }
