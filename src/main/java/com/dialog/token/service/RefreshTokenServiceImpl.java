@@ -24,14 +24,14 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     // JPA 리파지토리를 통해 DB의 refresh_token 테이블에 접근
     private final RefreshTokenRepository refreshTokenRepository;
     
-    // 리프레시 토큰 기본 유효기간: 7일 (밀리초 단위, 사용 시 LocalDateTime 등으로 변환됨)
+    // 리프레시 토큰 기본 유효기간
     private final long refreshTokenDurationMs = 7 * 24 * 60 * 60 * 1000L; // 7일
 
-    // 1. 리프레시 토큰 생성: 사용자 객체를 받아서 랜덤 UUID 토큰 생성 후 DB에 저장
+    // 1. 리프레시 토큰 생성
     @Override
     public RefreshToken createRefreshToken(MeetUser user) {
     	
-    	// 1. 아직 만료되지 않고, 폐기되지 않은 기존 토큰이 있는지 먼저 검색 
+    	// 아직 만료되지 않고, 폐기되지 않은 기존 토큰이 있는지 먼저 검색 
     	Optional<RefreshToken> existingTokenOpt = refreshTokenRepository
     	    .findFirstByUserAndRevokedIsFalseAndExpiresAtAfter(user, LocalDateTime.now());
     	
@@ -45,7 +45,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     	LocalDateTime issuedAt = LocalDateTime.now(); 		// 발급 시각
     	LocalDateTime expiresAt = issuedAt.plusDays(7); 	// 7일 뒤 만료일 구하기
 
-    	// 4. 엔티티 빌더로 새 RefreshToken 엔티티 생성. 사용자를 연결
+    	// 4. RefreshToken 엔티티 생성. 사용자를 연결
     	RefreshToken refreshToken = RefreshToken.builder()
     	        .refreshToken(token)     // 실제 토큰 문자열
     	        .issuedAt(issuedAt)     // 발급 시각

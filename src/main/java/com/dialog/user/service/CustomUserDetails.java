@@ -10,12 +10,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import com.dialog.user.domain.MeetUser;
 
 public class CustomUserDetails implements UserDetails {
-    private Long id; // DB 회원 고유 ID
-    private String username; // 이메일(로그인 아이디)
+    private Long id;
+    private String username; // 로그인 아이디
     private String password; // 암호화된 비밀번호
     private Collection<? extends GrantedAuthority> authorities; // 권한 목록
 
-    // 생성자: MeetUser 엔티티를 받아 필드 초기화
     public CustomUserDetails(MeetUser user) {
         this.id = user.getId(); // DB PK 저장
         this.username = user.getEmail();
@@ -24,12 +23,10 @@ public class CustomUserDetails implements UserDetails {
         this.authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
-    // 사용자 ID를 가져오는 커스텀 getter (컨트롤러 등에서 사용 가능)
     public Long getId() {
         return id;
     }
 
-    // 아래는 UserDetails 인터페이스 구현 메서드들
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

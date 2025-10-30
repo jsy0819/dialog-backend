@@ -37,37 +37,34 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-//사용자 REST API 컨트롤러: 회원가입/로그인 처리
+
 @Slf4j
-@RestController // REST(즉 JSON) 응답을 내려주는 컨트롤러임
-@RequiredArgsConstructor // 생성자 주입 (meetuserService, jwtTokenProvider)
-//@CrossOrigin(origins = {"http://localhost:5500", "http://127.0.0.1:5500/"}) // CORS 허용 설정
+@RestController 
+@RequiredArgsConstructor
 public class MeetUserController {
 
-	 private final MeetuserService meetuserService; // 비즈니스 로직: 회원 DB, 인증 등
-	 private final JwtTokenProvider jwtTokenProvider; // JWT 토큰 발급 역할
+	 private final MeetuserService meetuserService;
+	 private final JwtTokenProvider jwtTokenProvider;
 	 private final RefreshTokenServiceImpl refreshTokenService;
 
-	 // 1. 회원가입 (클라이언트가 POST /api/auth/signup로 JSON 데이터 전송)
+	 // 1. 회원가입
 	 @PostMapping("/api/auth/signup")
 	 public ResponseEntity<?> signup(@Valid @RequestBody MeetUserDto dto) {
 	     Map<String, Object> result = new HashMap<>();
 	     try {
 	         // 서비스 계층으로 회원가입 시도 (DB 저장)
-	         meetuserService.signup(dto);    // DB에 저장됨
+	         meetuserService.signup(dto);  
 	         result.put("success", true);
 	         result.put("message", "회원가입 성공");
-	         // 성공 시: { success: true, message: ... } 형태의 JSON 반환
 	         return ResponseEntity.ok(result);
 	     } catch (IllegalStateException | IllegalArgumentException e) {
-	         // 중복/실패시: 예외를 잡아 메시지만 반환
 	         result.put("success", false);
 	         result.put("message", e.getMessage());
 	         return ResponseEntity.badRequest().body(result);
 	     }
 	 }
 	
-	 // 2. 로그인 (클라이언트가 POST /api/auth/login로 이메일/비밀번호 JSON 전송)
+	 // 2. 로그인
 	 @PostMapping(value = "/api/auth/login", produces = MediaType.APPLICATION_JSON_VALUE)
 	 public ResponseEntity<?> login(@RequestBody LoginDto dto) {
 	     Map<String, Object> result = new HashMap<>();
@@ -75,7 +72,7 @@ public class MeetUserController {
 	         // 1. 클라이언트가 전달한 이메일과 비밀번호로 사용자 인증 수행
 	         MeetUser user = meetuserService.login(dto.getEmail(), dto.getPassword());
 	
-	         // 2. Spring Security 인증 객체 생성 (사용자 이메일, 권한 정보 포함)
+	         // 2. Spring Security 인증 객체 생성
 	         Authentication authentication = new UsernamePasswordAuthenticationToken(
 	             user.getEmail(), null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
 	         );
@@ -119,15 +116,14 @@ public class MeetUserController {
 	     ));	     
 	 }
 
-	// 4. '설정' 페이지에서 사용자 정보(직무/직급) 업데이트
-	// '저장하기' 버튼 클릭 시 /api/user/settings 로 PUT 요청
+	// 4. 설정 페이지에서 사용자 정보(직무/직급) 업데이트
 	@PutMapping("/api/user/settings")
-	public ResponseEntity<?> updateUserSettings(Authentication authentication, // (필수) 누가 요청했는지 (인증)
-			@Valid @RequestBody UserSettingsUpdateDto dto // (필수) 수정할 내용 (job, position)
+	public ResponseEntity<?> updateUserSettings(Authentication authentication, 
+			@Valid @RequestBody UserSettingsUpdateDto dto 
 	) {
 		Map<String, Object> result = new HashMap<>();
 		try {
-			// 1. 인증 정보가 없으면 거부 (혹시 모를 상황 대비)
+			// 1. 인증 정보가 없으면 거부
 			if (authentication == null || !authentication.isAuthenticated()) {
 				result.put("success", false);
 				result.put("message", "인증되지 않은 사용자입니다.");
@@ -143,7 +139,7 @@ public class MeetUserController {
 			return ResponseEntity.ok(result);
 
 		} catch (Exception e) {
-			// 4. 실패(예: 사용자를 못찾음, 값 누락 등) 시 에러 응답
+			// 4. 실패시 에러 응답
 			result.put("success", false);
 			result.put("message", e.getMessage());
 			return ResponseEntity.badRequest().body(result);

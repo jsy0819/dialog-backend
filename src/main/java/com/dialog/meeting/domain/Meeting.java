@@ -42,12 +42,12 @@ public class Meeting {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id; // 회의 고유 식별자 (PK)
+	private Long id;
 	
 	@Column(nullable = false, length = 255)
 	private String title; // 회의 제목
 	
-	@Lob // 긴 텍스트 (TEXT 또는 LONGTEXT)
+	@Lob 
 	private String description; // 회의 설명
 	
 	@Column(name = "scheduled_at", nullable = false)
@@ -59,13 +59,13 @@ public class Meeting {
 	@Column(name = "ended_at")
 	private LocalDateTime endedAt; // 실제 회의 종료 시간
 	
-	@Enumerated(EnumType.STRING) // Enum 이름을 문자열로 DB에 저장
+	@Enumerated(EnumType.STRING) 
 	@Column(nullable = false)
-	    @Builder.Default // 빌더로 객체 생성 시, 값을 안 주면 이 기본값이 설정됨
+	    @Builder.Default 
 	private Status status = Status.SCHEDULED; // 회의 상태
 	
-	@ManyToOne(fetch = FetchType.LAZY) // N:1 연관관계 (지연 로딩)
-	@JoinColumn(name = "host_user_id", nullable = false) // 외래키(FK)
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "host_user_id", nullable = false) 
 	private MeetUser hostUser; // 회의 주최자 (MeetUser 엔티티 참조)
 	
 	@Lob
@@ -79,13 +79,10 @@ public class Meeting {
 	@Column(name = "updated_at", nullable = false)
 	private LocalDateTime updatedAt; // 레코드 마지막 수정 일시
 	
-	// --------------추가------------------------------
-	// 회의 참석자, 키워드 부분
-	
 	@OneToMany(mappedBy = "meeting", fetch = FetchType.LAZY)
 	private List<Participant> participants;
 	
-    // 키워드 연관관계 (다대다)
+  // 키워드 연관관계 (다대다)
 	@Builder.Default
     @ManyToMany
     @JoinTable(
@@ -94,11 +91,6 @@ public class Meeting {
         inverseJoinColumns = @JoinColumn(name = "keyword_id")
     )
     private List<Keyword> keywords = new ArrayList<>();
-
-    // --- 비즈니스 로직 (Setter 대신 사용) ---
-
-    
-    //  회의 제목과 설명을 수정합니다. (Setter 대용)
      
     public void updateInfo(String title, String description) {
         if (title != null) {
@@ -108,10 +100,8 @@ public class Meeting {
             this.description = description;
         }
     }
-
-    
-    //  회의 상태를 '녹음 중(RECORDING)'으로 변경하고 시작 시간을 기록합니다.
-     
+   
+    //  회의 상태를 '녹음 중(RECORDING)'으로 변경하고 시작 시간을 기록합니다.     
     public void startRecording() {
         this.status = Status.RECORDING;
         this.startedAt = LocalDateTime.now(); 
@@ -119,7 +109,6 @@ public class Meeting {
 
     
     //  회의 상태를 '완료(COMPLETED)'로 변경하고 종료 시간을 기록합니다.
-    
     public void complete() {
         this.status = Status.COMPLETED;
         this.endedAt = LocalDateTime.now(); 
@@ -127,7 +116,6 @@ public class Meeting {
 
 
     // AI 요약본을 업데이트합니다.
- 
     public void updateSummary(String newSummary) {
         this.summary = newSummary;
     }

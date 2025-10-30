@@ -2,8 +2,6 @@ package com.dialog.token.domain;
 
 import java.time.LocalDateTime;
 
-
-
 import com.dialog.user.domain.MeetUser;
 
 import jakarta.persistence.Column;
