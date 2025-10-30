@@ -32,14 +32,11 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
         // 1. 기본 DefaultOAuth2UserService를 사용해 외부 OAuth 공급자로부터 사용자 정보를 조회
-    	log.info("==== CustomOAuth2UserService.loadUser() 호출됨! ====");
         DefaultOAuth2UserService defaultService = new DefaultOAuth2UserService();
         OAuth2User oauth2User = defaultService.loadUser(userRequest);
-        log.info("==== 공급자 attributes: {}", oauth2User.getAttributes());
 
         // 2. 현재 로그인 진행중인 OAuth 공급자 식별 (google, kakao, naver 등)
         String registId = userRequest.getClientRegistration().getRegistrationId();
-        log.info("로그인 구분 : " +userRequest.getClientRegistration());
         // 3. 자동 로그인에 사용할 사용자의 ID 속성 이름 추출
         String userNameAttrName = userRequest.getClientRegistration()
                 .getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName();
@@ -48,20 +45,15 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         SocialUserInfo socialUserInfo = SocialUserInfoFactory.getSocialUserInfo(
                 registId, oauth2User.getAttributes()
         );
-
-        log.info("==== SocialUserInfo name: " + socialUserInfo.getName());
-        log.info("==== SocialUserInfo email: " + socialUserInfo.getEmail());
         // 5. 내부 DB에 사용자 정보 저장 또는 업데이트 (최종 로그인 시각 반영 등)
         MeetUser user = registrationService.saveOrUpdateSocialMember(socialUserInfo, registId);
 
         // 6. 권한 설정 (여기서는 임시로 USER_ROLE 권한 부여)
         Set<SimpleGrantedAuthority> authorities = Set.of(
-            new SimpleGrantedAuthority("USER_ROLE")
+            new SimpleGrantedAuthority("ROLE_USER")
         );
 
         // 7. CustomOAuth2User 객체 생성해 리턴
-        //    - Spring Security 컨텍스트에 저장되어 인증에 사용됨
-        //    - 내부 도메인의 MeetUser 엔티티를 포함하여 커스텀 기능 제공
         return new CustomOAuth2User(
                 authorities,
                 oauth2User.getAttributes(),

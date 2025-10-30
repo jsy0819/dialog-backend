@@ -1,8 +1,11 @@
 package com.dialog.security;
 
 import static org.springframework.security.config.Customizer.withDefaults;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
@@ -15,9 +18,9 @@ import com.dialog.security.oauth2.OAuth2AuthenticationFailurHandler;
 import com.dialog.security.oauth2.OAuth2AuthenticationSuccessHandlerJWT;
 import com.dialog.user.service.CustomOAuth2UserService;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 
 @Slf4j
 @RequiredArgsConstructor
@@ -27,17 +30,19 @@ public class SecurityConfigJWT {
     private final MeetAuthenticationFaliureHandler faliureHandler;              // 폼 로그인 실패 시 처리기
     private final MeetAuthenticationSuccessHandler successHandler;              // 폼 로그인 성공 시 처리기
     private final OAuth2AuthenticationFailurHandler oAuth2faliureHandler;        // OAuth2 로그인 실패 핸들러
-    private final OAuth2AuthenticationSuccessHandlerJWT oAuth2successHandler;		// OAuth2 로그인 성공 핸들러 JWT
+    private final OAuth2AuthenticationSuccessHandlerJWT oAuth2successHandler;      // OAuth2 로그인 성공 핸들러 JWT
 //    private final OAuth2AuthenticationSuccessHandler oAuth2successHandler;       // OAuth2 로그인 성공 핸들러
     private final CustomOAuth2UserService customOAuth2UserService;               // OAuth2UserService 커스텀 구현체
     private final JwtTokenProvider jwtTokenProvider;                             // JWT 토큰 생성/검증기
     private final OAuth2AuthorizationRequestResolver customAuthorizationRequestResolver;
 
-
+    @Value("${app.oauth2.fail-uri}")
+    String failUrl;
+    
     @Bean
     public SecurityFilterChain meetFilterChain(HttpSecurity http) throws Exception {
         return http
-    		.cors(withDefaults()) // CORS 허용	
+          .cors(withDefaults()) // CORS 허용   
             // 1. CSRF 설정: 특정 경로(h2-console, /api/**)는 CSRF 보호 안함
             .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
             
@@ -53,45 +58,60 @@ public class SecurityConfigJWT {
             )
             
             // 5. 권한 설정: 지정된 URL만 무인증 접근 가능, 기타는 인증 필요
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/**", "/login", "/register", "/main", "/", "/static/**", "/css/**", "/js/**", "/images/**", "/h2-console/**").permitAll()
-                .anyRequest().authenticated()  // 나머지 요청은 인증 필요
-            )
-            
+           .authorizeHttpRequests(auth -> auth
+               .requestMatchers("/login", "/main", "/static/**", "/css/**", "/js/**", "/images/**").permitAll()
+               .anyRequest().authenticated()  // 나머지 요청은 인증 필요
+           )
             // 6. 폼 로그인 비활성화 (JWT 비사용 시 활성화 가능하여 주석 처리)
             .formLogin(formLogin -> formLogin.disable())
             
             // 7. OAuth2 로그인 설정: 커스텀 서비스 및 성공/실패 핸들러 설정
             .oauth2Login(oauth2 -> oauth2
-            	    .loginPage("/login")
-            	    .userInfoEndpoint(userInfo -> userInfo
-            	        .userService(customOAuth2UserService)
-            	    )
-            	    .authorizationEndpoint(authz -> authz
-            	        .authorizationRequestResolver(customAuthorizationRequestResolver) 
-            	    )
-            	    .successHandler(oAuth2successHandler)
-            	    .failureHandler(oAuth2faliureHandler)
-            	)
+                   .loginPage("/login")
+                   .userInfoEndpoint(userInfo -> userInfo
+                       .userService(customOAuth2UserService)
+                   )
+                   .authorizationEndpoint(authz -> authz
+                       .authorizationRequestResolver(customAuthorizationRequestResolver) 
+                   )
+                   .successHandler(oAuth2successHandler)
+                   .failureHandler(oAuth2faliureHandler)
+               )
             
             // 8. 로그아웃 비활성화 (필요시 활성화 가능)
             .logout(logout -> logout.disable())
             
             // 9. JWT 필터 등록: 폼 로그인 전에 실행되도록 함
-            .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
-            
+            .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)            
             // 10. 인증/권한 관련 예외 처리 설정
             .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((request, response, authException) -> {
-                    log.info("인증 안된 사용자 요청");
-                    response.sendRedirect("/login");  // 인증 안된 경우 로그인 페이지로 리다이렉트
-                })
+              .authenticationEntryPoint((request, response, authException) -> {
+                 log.warn("인증 엔트리포인트 호출됨: " + request.getRequestURI() + " - " + authException.getMessage());
+                  
+                 //  모든 API 요청에 대해 리다이렉트 대신 401 상태 코드만 반환
+                   if (request.getRequestURI().startsWith("/api/")) {
+                       response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // HTTP 401 설정
+                       response.setContentType("application/json");
+                       // 클라이언트에게 에러 메시지를 보냄 (필수)
+                       response.getWriter().write("{\"status\": 401, \"error\": \"Unauthorized\", \"message\": \"JWT 인증은 성공했으나, Security Context에 문제가 있거나 접근 권한이 부족합니다.\"}");
+                   } else {
+                       // 웹 페이지 요청인 경우 로그인 페이지로 리다이렉트
+                       response.sendRedirect(failUrl);
+                   }
+               })
                 .accessDeniedHandler((request, response, accessDeniedException) -> {
-                    log.info("접근 권한 없음");
-                    response.sendRedirect("/login");  // 권한 없는 경우 로그인 페이지로 리다이렉트
+                    //log.info("접근 권한 없음");
+                    //response.sendRedirect("/login");  // 권한 없는 경우 로그인 페이지로 리다이렉트
+                   if (request.getRequestURI().startsWith("/api/")) {
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN); // HTTP 403
+                        response.getWriter().write("{\"status\": 403, \"error\": \"Forbidden\", \"message\": \"접근 권한이 없습니다.\"}");
+                        response.setContentType("application/json");
+                    } else {
+                        response.sendRedirect(failUrl);
+                    }
                 })
             )
             
-            .build();  // SecurityFilterChain 객체 생성 및 반환
+            .build();
     }
 }

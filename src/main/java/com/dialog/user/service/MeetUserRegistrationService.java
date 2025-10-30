@@ -29,7 +29,7 @@ public class MeetUserRegistrationService {
     public MeetUser saveOrUpdateSocialMember(SocialUserInfo socialUserInfo, String provider) {
     	
     	try {
-    	    // 1. 소셜 로그인 사용자의 고유 식별자 생성 (예: google_nureong)
+    	    // 1. 소셜 로그인 사용자의 고유 식별자 생성 
     		log.info("소셜 사용자 정보 - 이름: {}, 이메일: {}, Provider: {}", socialUserInfo.getName(), socialUserInfo.getEmail(), provider);
     	    String socialId = provider + "_" + socialUserInfo.getId();
 

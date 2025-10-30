@@ -17,7 +17,7 @@ import com.dialog.user.repository.MeetUserRepository;
 
 import lombok.RequiredArgsConstructor;
 
-@Service // 서비스 계층(DB 접근·비즈니스 로직 처리 담당)
+@Service
 @RequiredArgsConstructor // 생성자 주입
 public class MeetuserService {
 
@@ -52,16 +52,15 @@ public class MeetuserService {
     }
 
     
-//      현재 로그인한 유저 정보 조회 (SecurityContext 기반)
-//      @param authentication Spring Security 인증객체
+//      현재 로그인한 유저 정보 조회 
 //      흐름:
-//      1) 인증 안됐으면 예외 발생
-//      2) 소셜(OAuth2) 로그인과 일반 로그인 분기
+//      인증 안됐으면 예외 발생
+//      소셜(OAuth2) 로그인과 일반 로그인 분기
 //         - OAuth2User면 provider, snsId로 회원 조회(DB)
 //         - UserDetails면 username(email)로 회원 조회(DB)
-//      3) 최종적으로 MeetUserDto로 변환해 반환
+//      최종적으로 MeetUserDto로 변환해 반환
     
-    // 현재 로그인한 유저 정보 조회 (SecurityContext 기반)
+    // 현재 로그인한 유저 정보 조회
     public MeetUserDto getCurrentUser(Authentication authentication) {
         // 1. 공용 메서드를 호출해 사용자 엔티티를 가져옴
         MeetUser user = getAuthenticatedUser(authentication);
@@ -71,12 +70,7 @@ public class MeetuserService {
     }
     
 //      로그인 검증
-//      @param email 로그인 아이디(이메일)
-//      @param rawPassword 평문 비밀번호
-//      흐름:
-//      1) 이메일 DB조회
-//      2) 비밀번호 비교 (암호화 검증)
-//      3) 오류시 예외 반환, 성공시 유저 엔티티 반환
+//      이메일 DB조회 -> 비밀번호 비교 (암호화 검증) -> 오류시 예외 반환, 성공시 유저 엔티티 반환
      
     public MeetUser login(String email, String rawPassword) {
         MeetUser user = meetUserRepository.findByEmail(email)
@@ -88,23 +82,18 @@ public class MeetuserService {
         return user; // 인증 성공 시 회원 정보 반환
     }
     
-    // '설정' 페이지에서 직무/직급 업데이트
-    @Transactional // 데이터를 수정하므로 트랜잭션 필수!
+    // 설정 페이지에서 직무/직급 업데이트
+    @Transactional
     public void updateUserSettings(Authentication authentication, UserSettingsUpdateDto dto) {
         
-        // 1. (재사용) 현재 인증된 사용자 엔티티를 조회
+        // 1. 현재 인증된 사용자 엔티티를 조회
         MeetUser user = getAuthenticatedUser(authentication);
 
         // 2. MeetUser 엔티티 내부의 업데이트 메서드 호출
         user.updateSettings(dto.getJob(), dto.getPosition());
-        
-        // 3. @Transactional 어노테이션 덕분에
-        //    메서드가 끝나면 변경된 내용을 감지하여 자동으로 DB에 UPDATE 쿼리 실행
-        //    (즉, meetUserRepository.save(user) 를 호출할 필요 없음)
     }
     
-    // getCurrentUser와 updateUserSettings에서 공통으로 사용하는
-    // '인증된 사용자 엔티티 조회' 로직
+    // 인증된 사용자 엔티티 조회
     private MeetUser getAuthenticatedUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new IllegalStateException("로그인 세션 없음");

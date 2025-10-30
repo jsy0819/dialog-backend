@@ -18,6 +18,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
 import com.dialog.security.oauth2.CustomOAuth2User;
+import com.dialog.user.domain.MeetUser;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -53,7 +54,7 @@ public class JwtTokenProvider {
 
     // JWT 토큰 발급 메서드: 인증객체 받으면 토큰 생성하여 반환
     public String createToken(Authentication authentication) {
-    	// 인증객체에 포함된 권한(roles)을 ","로 이어붙여 claim에 저장
+       // 인증객체에 포함된 권한(roles)을 ","로 이어붙여 claim에 저장
         String authorities = authentication.getAuthorities()
                 .stream().map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
@@ -79,18 +80,34 @@ public class JwtTokenProvider {
         
 
         return Jwts.builder()
-                .subject(email)           		// subject(기본 피식별자)는 email로 지정 (username이 email이면 OK)
-                .claim("auth", authorities) 	// roles/권한 목록을 claim에 저장
-                .claim("name", name)      		// 사용자 이름을 claim에 저장
-                .claim("email", email)    		// 사용자 이메일을 claim에 저장
-                .signWith(key)            		// 서명에 SecretKey 사용
-                .expiration(validity)     		// 만료시간 지정
+                .subject(email)                 // subject(기본 피식별자)는 email로 지정 (username이 email이면 OK)
+                .claim("auth", authorities)    // roles/권한 목록을 claim에 저장
+                .claim("name", name)            // 사용자 이름을 claim에 저장
+                .claim("email", email)          // 사용자 이메일을 claim에 저장
+                .signWith(key)                  // 서명에 SecretKey 사용
+                .expiration(validity)           // 만료시간 지정
                 .compact();
         
     }
+    
+    // 2. JWT 토큰 발급 메서드: MeetUser 객체 받으면 토큰 생성 (추가된 로직 - OAuth2 성공 핸들러용)
+    public String createToken(MeetUser user) {
+    	 final String authorities = "ROLE_USER";  
+
+        long now = (new Date()).getTime();
+        Date validity = new Date(now + this.validityInMilliseconds);
+
+        return Jwts.builder()
+                .subject(user.getEmail())       // subject(기본 피식별자)는 email로 지정
+                .claim("auth", authorities)     // roles/권한 목록을 claim에 저장
+                .claim("name", user.getName())  // 사용자 이름을 claim에 저장
+                .claim("email", user.getEmail())// 사용자 이메일을 claim에 저장
+                .signWith(key)
+                .expiration(validity)
+                .compact();
+    }
     // JWT 토큰을 파싱해서 인증객체(Authentication)로 복원하는 메서드
     public Authentication getAuthentication(String token) {
-        log.info("JWT에서 인증 정보 추출 시작");
         try {
             // 토큰 검증(서명), Claims에서 주체, 권한 추출
             Claims claims = Jwts.parser()
@@ -98,15 +115,14 @@ public class JwtTokenProvider {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-            log.info("토큰에서 추출된 subject: " + claims.getSubject());
-            log.info("토큰에서 추출된 auth: " + claims.get("auth"));
-
+           
             Collection<? extends GrantedAuthority> authorities;
             Object authClaim = claims.get("auth");
             if (authClaim != null) {
                 authorities = Arrays.stream(authClaim.toString().split(","))
-                        .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toList());
+                    // 단순화된 로직: ROLE_USER가 그대로 SimpleGrantedAuthority 객체로 변환됨
+                    .map(SimpleGrantedAuthority::new) 
+                    .collect(Collectors.toList());
             } else {
                 authorities = Arrays.asList(new SimpleGrantedAuthority("ROLE_USER"));
             }
@@ -120,7 +136,7 @@ public class JwtTokenProvider {
             log.info("인증 정보 생성 완료");
 
             // Authentication 객체 생성 및 반환
-            return new UsernamePasswordAuthenticationToken(principal, token, principal.getAuthorities());
+            return new UsernamePasswordAuthenticationToken(principal, token, authorities);
 
         } catch (Exception e) {
             log.info("JWT 인증 정보 추출 중 오류가 발생했습니다. : " + e.getMessage());
@@ -131,7 +147,6 @@ public class JwtTokenProvider {
 
     // JWT 유효성 검사 메서드 (서명/만료 등 체크)
     public boolean validateToken(String token) {
-        log.info("JWT 토큰 검증 시작: " + (token != null ? "토큰 존재" : "토큰 없음"));
         if (token == null || token.trim().isEmpty()) {
             log.info("토큰이 null이거나 비어있습니다. ");
             return false;
@@ -142,7 +157,7 @@ public class JwtTokenProvider {
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token);
-            System.out.println("JWT 토큰 검증 성공!");
+            log.info("JWT 토큰 검증 성공!");
             return true;
         } catch (SignatureException e) {
             log.warn("JWT 서명 검증 실패: " + e.getMessage());

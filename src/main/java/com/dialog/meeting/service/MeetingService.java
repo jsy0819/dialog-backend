@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.dialog.keyword.domain.Keyword;
 import com.dialog.keyword.repository.KeywordRepository;
 import com.dialog.meeting.domain.Meeting;
-// 👈 [수정] DTO 패키지 경로로 변경
 import com.dialog.meeting.domain.MeetingCreateRequestDto;
 import com.dialog.meeting.domain.MeetingCreateResponseDto;
 import com.dialog.meeting.repository.MeetingRepository;
@@ -24,8 +23,8 @@ import lombok.RequiredArgsConstructor;
 
 
 @Service
-@RequiredArgsConstructor // final 레포지토리 필드 생성자 주입
-@Transactional(readOnly = true) // (기본) 읽기 전용 트랜잭션 (조회 성능 최적화)
+@RequiredArgsConstructor 
+@Transactional(readOnly = true) 
 public class MeetingService {
 
     private final MeetingRepository meetingRepository;
@@ -39,12 +38,12 @@ public class MeetingService {
 
         // 1. 주최자(User) 엔티티 조회
         MeetUser hostUser = meetUserRepository.findById(hostUserId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다.")); // .get() 대신 예외 처리
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
         // 2. 빌더 패턴을 사용해 DTO를 Meeting 엔티티로 변환
         LocalDateTime scheduledAt;
         try {
-            scheduledAt = LocalDateTime.parse(requestDto.getScheduledAt()); // 기본 파서: yyyy-MM-ddTHH:mm:ss에 맞게
+            scheduledAt = LocalDateTime.parse(requestDto.getScheduledAt());
         } catch (DateTimeParseException e) {
             throw new IllegalAccessException("잘못된 날짜 형식입니다. yyyy-MM-dd'T'HH:mm:ss 형식으로 보내야 합니다.");
         }
@@ -64,7 +63,7 @@ public class MeetingService {
             Participant participant = Participant.builder()
                 .meeting(savedMeeting)
                 .speakerId(speakerId)
-                .name(speakerId) // 이름이 필요하면 speakerId->이름 변환 로직 구현
+                .name(speakerId) 
                 .build();
             participantEntities.add(participant);
         }

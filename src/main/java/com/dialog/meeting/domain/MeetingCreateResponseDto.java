@@ -7,9 +7,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * (Response) 회의 생성 응답 시 서버가 보낼 데이터를 담는 클래스
- */
 @Getter
 @Setter
 @NoArgsConstructor
