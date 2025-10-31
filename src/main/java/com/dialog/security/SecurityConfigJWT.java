@@ -60,6 +60,7 @@ public class SecurityConfigJWT {
             // 5. 권한 설정: 지정된 URL만 무인증 접근 가능, 기타는 인증 필요
            .authorizeHttpRequests(auth -> auth
                .requestMatchers("/login", "/main", "/static/**", "/css/**", "/js/**", "/images/**").permitAll()
+               .requestMatchers("/api/reissue").permitAll()
                .anyRequest().authenticated()  // 나머지 요청은 인증 필요
            )
             // 6. 폼 로그인 비활성화 (JWT 비사용 시 활성화 가능하여 주석 처리)

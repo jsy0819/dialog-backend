@@ -27,9 +27,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 요청 URI 로그
         log.debug("JWT 필터 실행 - URI: {}", request.getRequestURI());
+        
+        String uri = request.getRequestURI();
+        // 재발급 엔드포인트에서는 토큰 없이도 통과되게 처리!
+        if ("/api/reissue".equals(uri)) {
+            chain.doFilter(request, response);
+            return;
+        }
 
         // 2. 요청에서 JWT 토큰 추출
         String token = resolveToken(request); // 헤더 또는 쿠키에서 토큰 추출
+        log.debug("추출된 JWT 토큰: {}", token);
 
         // 3. 토큰이 존재하고, 유효한 경우
         if (token != null && jwtTokenProvider.validateToken(token)) {
