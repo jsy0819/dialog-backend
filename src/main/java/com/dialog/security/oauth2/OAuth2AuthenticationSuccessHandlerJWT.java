@@ -105,7 +105,7 @@ public class OAuth2AuthenticationSuccessHandlerJWT extends SimpleUrlAuthenticati
            Cookie accessTokenCookie = new Cookie("jwt", accessToken);
            accessTokenCookie.setPath("/");
            accessTokenCookie.setHttpOnly(true);  // JS 접근 차단
-           accessTokenCookie.setSecure(true);    // HTTPS 환경에서 true 
+           accessTokenCookie.setSecure(false);    // HTTPS 환경에서 true 
            accessTokenCookie.setMaxAge(60 * 60 * 24); // 1일
            response.addCookie(accessTokenCookie);
 
@@ -113,7 +113,7 @@ public class OAuth2AuthenticationSuccessHandlerJWT extends SimpleUrlAuthenticati
            Cookie refreshTokenCookie = new Cookie("refreshToken", refreshTokenDto.getRefreshToken());
            refreshTokenCookie.setPath("/");
            refreshTokenCookie.setHttpOnly(true);  // JS 접근 차단
-           refreshTokenCookie.setSecure(true);
+           refreshTokenCookie.setSecure(false);
            // 리프레시 토큰 만료시간까지 쿠키 유효기간 설정 (7일)
            int refreshTokenMaxAge = (int) Duration.between(
                   LocalDateTime.now(), refreshTokenDto.getExpiresAt()).getSeconds();

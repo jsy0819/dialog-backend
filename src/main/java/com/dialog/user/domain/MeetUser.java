@@ -31,59 +31,59 @@ public class MeetUser {
 
 
      
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+   @Id
+   @GeneratedValue(strategy = GenerationType.IDENTITY)
+   private Long id;
 
     
     // 이메일 (로그인 ID)
-	@Column(nullable = false, length = 100, unique = true)
-	private String email;
+   @Column(nullable = false, length = 100, unique = true)
+   private String email;
 
     
     //  비밀번호
-	@Column(nullable = false, length = 255)
-	private String password;
+   @Column(nullable = false, length = 255)
+   private String password;
 
     
     //  사용자 실명
-	@Column(nullable = false, length = 100)
-	private String name;
+   @Column(nullable = false, length = 100)
+   private String name;
 
     
     // 프로필 이미지 URL
-	@Column(length = 200)
-	private String profileImgUrl;
+   @Column(length = 200)
+   private String profileImgUrl;
 
     
     // 직무 
-	@Enumerated(EnumType.STRING)
-	@Column(length = 50, nullable = false)
-	private Job job = Job.NONE; // 기본값으로 '정해지지 않음'을 설정
+   @Enumerated(EnumType.STRING)
+   @Column(length = 50, nullable = false)
+   private Job job = Job.NONE; // 기본값으로 '정해지지 않음'을 설정
 
     
     // 직급
-	@Enumerated(EnumType.STRING)
-	@Column(length = 50, nullable = false)
-	private Position position = Position.NONE; // 기본값으로 '정해지지 않음'을 설정
+   @Enumerated(EnumType.STRING)
+   @Column(length = 50, nullable = false)
+   private Position position = Position.NONE; // 기본값으로 '정해지지 않음'을 설정
 
     
     // 소셜 로그인 타입 (e.g., "google", "kakao")    
-	@Column(length = 50)
-	private String socialType;
+   @Column(length = 50)
+   private String socialType;
 
     
     // 소셜 로그인 고유 ID
-	@Column(length = 100)
-	private String snsId;
+   @Column(length = 100)
+   private String snsId;
 
     
     //계정 생성일
-	@CreationTimestamp
-	@Column(name = "created_at", nullable = false, updatable = false)
-	private LocalDateTime createdAt;
+   @CreationTimestamp
+   @Column(name = "created_at", nullable = false, updatable = false)
+   private LocalDateTime createdAt;
 
-	// 소셜 토큰
+   // 소셜 토큰
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY,
             cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserSocialToken> socialTokens = new ArrayList<>();
@@ -93,26 +93,23 @@ public class MeetUser {
         socialTokens.add(token);
         token.setUser(this);
     }
-    
-    
-	
-    
+
     //  JPA를 위한 기본 생성자.
-	protected MeetUser() {
-	}
+   protected MeetUser() {
+   }
 
-	
-	@Builder
-	public MeetUser(String email, String password, String name, String socialType, String snsId, String profileImgUrl) {
-		this.email = email;
-		this.password = password;
-		this.name = name;
-		this.socialType = socialType;
-		this.snsId = snsId;
-		this.profileImgUrl = profileImgUrl;
-	}
+   
+   @Builder
+   public MeetUser(String email, String password, String name, String socialType, String snsId, String profileImgUrl) {
+      this.email = email;
+      this.password = password;
+      this.name = name;
+      this.socialType = socialType;
+      this.snsId = snsId;
+      this.profileImgUrl = profileImgUrl;
+   }
 
-	
+   
    
     // 소셜 로그인 시, 기존 소셜 토큰 업데이트 메서드    
     public void updateSocialToken(String provider, String accessToken, String refreshToken, LocalDateTime expiresAt) {
@@ -133,17 +130,17 @@ public class MeetUser {
         addSocialToken(newToken);
     }
     
-    // 소셜 로그인 시, 기존 회원이 재로그인하면 프로필 정보(이름, 사진)를 업데이트하는 메서드.	 
-	public void updateSocialInfo(String name, String profileImgUrl) {
-		this.name = name;
-		this.profileImgUrl = profileImgUrl;
-	}
+    // 소셜 로그인 시, 기존 회원이 재로그인하면 프로필 정보(이름, 사진)를 업데이트하는 메서드.    
+   public void updateSocialInfo(String name, String profileImgUrl) {
+      this.name = name;
+      this.profileImgUrl = profileImgUrl;
+   }
 
-	
-	 // 설정 페이지에서 직무/직급 업데이트를 위한 메서드.	 
-	public void updateSettings(Job job, Position position) {
-		this.job = job;
-		this.position = position;
-	}
+   
+    // 설정 페이지에서 직무/직급 업데이트를 위한 메서드.    
+   public void updateSettings(Job job, Position position) {
+      this.job = job;
+      this.position = position;
+   }
 
 }

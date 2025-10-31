@@ -14,15 +14,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.dialog.CalendarEvent.Service.CalendarEventService;
-import com.dialog.CalendarEvent.Service.TokenManagerService;
 import com.dialog.CalendarEvent_.CalendarCreateRequest;
 import com.dialog.CalendarEvent_.CalendarEventResponse;
 import com.dialog.CalendarEvent_.GoogleEventResponseDTO;
-
+import com.dialog.token.service.SocialTokenService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 
+@Log4j2
 @RestController
 @RequestMapping("/api")
 // HTML 주소를 넣어야함. 반드시.
@@ -32,7 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class CalendarEventController {
 
 	private final CalendarEventService calendarEventService;
-	private final TokenManagerService tokenManagerService;
+	private final SocialTokenService tokenManagerService;
 
 	@GetMapping("/calendar/events")
 	public ResponseEntity<List<CalendarEventResponse>> getEvents(Principal principal,
@@ -72,9 +73,9 @@ public class CalendarEventController {
 	@PostMapping("/calendar/events")
 	public ResponseEntity<GoogleEventResponseDTO> createEvent(Principal principal,
 			@RequestBody @Valid CalendarCreateRequest request) {
-
+		log.error("flag");
 		try {
-
+			
 			if (request == null || request.getEventData() == null) {
 				System.out.println("❌ 요청 본문(JSON)의 eventData 필드가 누락되었거나 null입니다.");
 				return ResponseEntity.badRequest().build(); // 400 Bad Request 반환
@@ -82,13 +83,13 @@ public class CalendarEventController {
 
 			String userEmail = principal.getName();
 			String provider = "google";
-
+			
 			// AccessToken 가져오기 (TokenManagerService 등에서 조회 필요)
 			// 예시: String accessToken = tokenManagerService.getAccessToken(userEmail,
 			// provider);
 			// TODO: 실제 accessToken 조회 로직으로 교체해야 함
 			String accessToken = tokenManagerService.getToken(userEmail, provider);
-
+			log.error("flag2");
 			// GoogleEventRequestDTO를 그대로 전달 (DTO 변환 불필요)
 			GoogleEventResponseDTO response = calendarEventService.createCalendarEvent(userEmail, // principalName
 					provider, // provider
