@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.dialog.CalendarEvent.Repository.CalendarEventRepository;
 import com.dialog.CalendarEvent_.CalendarEvent;
 import com.dialog.CalendarEvent_.CalendarEventResponse;
+import com.dialog.CalendarEvent_.EventType;
 import com.dialog.CalendarEvent_.GoogleEventRequestDTO;
 import com.dialog.CalendarEvent_.GoogleEventResponseDTO;
 import com.dialog.token.service.SocialTokenService;
@@ -84,13 +85,34 @@ public class CalendarEventService {
 	// 2. 일정 생성 로직 (POST /api/CalendarEvents)
 	// =========================================================================
 
-	@Transactional // 생성 작업이므로 쓰기 트랜잭션 적용
+	@Transactional // DB 쓰기를 위해 (readOnly = true) 덮어쓰기
 	public GoogleEventResponseDTO createCalendarEvent(String principalName, String provider, String calendarId,
 			String accessToken, GoogleEventRequestDTO eventData) { 
+		
+		// 1. Google Calendar API를 호출하여 일정 생성 요청
+		GoogleEventResponseDTO responseFromGoogle = googleCalendarApiClient.createEvent(accessToken, calendarId, eventData);
 
-		// 2. Google Calendar API를 호출하여 일정 생성 요청
-		GoogleEventResponseDTO response = googleCalendarApiClient.createEvent(accessToken, calendarId, eventData);
-
-		return response;
+        try {
+            MeetUser user = meetUserRepository.findByEmail(principalName)
+                    .orElseThrow(() -> new IllegalArgumentException("DB 저장 실패: 사용자를 찾을 수 없습니다: " + principalName));
+            
+            // 3. 엔티티의 @Builder를 사용하여 객체 생성
+            CalendarEvent newLocalEvent = CalendarEvent.builder()
+                    .userId(user.getId()) 
+                    .title(eventData.getSummary()) // 프론트에서 받은 제목
+                    .eventDate(LocalDate.parse(eventData.getStart().getDate())) // DTO의 date(String)를 LocalDate로 변환
+                    .googleEventId(responseFromGoogle.getId())
+                    .eventType(EventType.TASK)
+                    .isImportant(false)                     
+                    .build();
+            
+            // 4. 로컬 DB에 최종 저장
+            calendarEventRepository.save(newLocalEvent);
+            
+            
+        } catch (Exception e) {            
+            throw new RuntimeException("로컬 DB 저장 중 오류 발생", e);
+        }
+		return responseFromGoogle;
 	}
 }
