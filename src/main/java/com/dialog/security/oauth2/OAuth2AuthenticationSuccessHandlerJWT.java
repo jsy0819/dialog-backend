@@ -106,7 +106,7 @@ public class OAuth2AuthenticationSuccessHandlerJWT extends SimpleUrlAuthenticati
            accessTokenCookie.setPath("/");
            accessTokenCookie.setHttpOnly(true);  // JS 접근 차단
            accessTokenCookie.setSecure(false);    // HTTPS 환경에서 true 
-           accessTokenCookie.setMaxAge(60 * 60 * 24); // 1일
+           accessTokenCookie.setMaxAge(60 * 60 * 24); // 1일           
            response.addCookie(accessTokenCookie);
 
            // 6. 리프레시 토큰 쿠키 설정

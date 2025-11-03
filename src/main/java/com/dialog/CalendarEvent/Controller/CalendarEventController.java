@@ -2,7 +2,9 @@ package com.dialog.CalendarEvent.Controller;
 
 import java.security.Principal;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -35,65 +37,134 @@ public class CalendarEventController {
 	private final CalendarEventService calendarEventService;
 	private final SocialTokenService tokenManagerService;
 
+//	@GetMapping("/calendar/events")
+//	// public ResponseEntity<List<CalendarEventResponse>>
+//	public ResponseEntity<?> getEvents(Principal principal,
+//
+//			@RequestParam(name = "startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+//
+//			@RequestParam(name = "endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+//
+//		if (principal == null) {
+//			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+//		}
+//
+//		String userEmail = principal.getName();
+//		try {
+//			List<CalendarEventResponse> events = calendarEventService.getEventsByDateRange(userEmail, startDate,
+//					endDate);
+//
+//			return ResponseEntity.ok(events);
+//
+//		} catch (IllegalAccessException e) {
+//
+//			return ResponseEntity.status(HttpStatus.FORBIDDEN).build(); // 403 Forbidden
+//
+//		} catch (Exception e) {
+//
+//			// 5. 'invalid_grant' 또는 토큰 관련 예외인지 확인
+//			if (e.getMessage() != null
+//					&& (e.getMessage().contains("invalid_grant") || e.getMessage().contains("Google 토큰 갱신 실패")
+//							|| e.getMessage().contains("Access Token이 유효하지 않거나 비어있습니다"))) {
+//
+//				log.warn("⚠️ Google 토큰 갱신 실패(invalid_grant). 401 상태와 재연동 코드를 반환합니다.");
+//
+//				// 6. 프론트엔드(JS)가 기대하는 401 + JSON 에러 응답 생성
+//				Map<String, String> errorResponse = new HashMap<>();
+//				errorResponse.put("errorCode", "GOOGLE_REAUTH_REQUIRED");
+//				errorResponse.put("message", "Google 토큰이 만료되었거나 무효화되었습니다. 계정 재연동이 필요합니다.");
+//
+//				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse); // ⭐️ 401 + JSON 반환
+//			}
+//
+//			e.printStackTrace();
+//			// 그 외 모든 예외는 500
+//			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+//		}
+//	}
 	@GetMapping("/calendar/events")
-	public ResponseEntity<List<CalendarEventResponse>> getEvents(Principal principal,
-			@RequestParam(name = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) // 파라미터
-																												// 이름 명시
-			LocalDate startDate,
+	public ResponseEntity<?> getEvents(Principal principal,
 
-			@RequestParam(name = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) // 파라미터 이름
-																												// 명시
-			LocalDate endDate) throws IllegalAccessException {		
+			@RequestParam(name = "startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+
+			@RequestParam(name = "endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
 		if (principal == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
 
 		String userEmail = principal.getName();
-
 		try {
-	        // 3. Service 호출 시 이메일을 전달합니다.
-	        // Service 내부에서 이 이메일을 이용해 MeetUser ID를 조회하고, Google 토큰을 찾도록 해야 합니다.
-	        List<CalendarEventResponse> events = calendarEventService.getEventsByDateRange(userEmail, startDate, endDate);
-	        
-	        return ResponseEntity.ok(events);
-	        
-	    } catch (IllegalAccessException e) {
-	        // 토큰이 없거나 MeetUser를 찾을 수 없는 DB/데이터 오류 처리
-	        System.err.println("❌ 캘린더 조회 인증/데이터 오류: " + e.getMessage());
-	        return ResponseEntity.status(HttpStatus.FORBIDDEN).build(); // 403 Forbidden
-	        
-	    } catch (Exception e) {
-	        System.err.println("❌ 캘린더 조회 서버 예외 발생: " + e.getMessage());
-	        e.printStackTrace();
-	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-	    }
+			List<CalendarEventResponse> events = calendarEventService.getEventsByDateRange(userEmail, startDate,
+					endDate);
+
+			return ResponseEntity.ok(events);
+
+		} 
+        // ⬇️ 1. [이 블록 추가] SocialTokenService가 던진 "토큰 없음" 예외 잡기
+        catch (IllegalArgumentException e) {
+            log.warn("⚠️ Google 연동 토큰 없음 (IllegalArgumentException). 401 상태와 재연동 코드를 반환합니다. User: {}", userEmail);
+
+            // ⭐️ 프론트엔드가 인지할 수 있도록 401 에러와 JSON 응답을 보냅니다.
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("errorCode", "GOOGLE_REAUTH_REQUIRED");
+            errorResponse.put("message", "Google 계정 연동이 필요합니다: " + e.getMessage());
+            
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        }
+        // ⬇️ 2. [기존 블록] 접근 권한 (이건 그대로 둡니다)
+        catch (IllegalAccessException e) {
+
+			return ResponseEntity.status(HttpStatus.FORBIDDEN).build(); // 403 Forbidden
+
+		} 
+        // ⬇️ 3. [기존 블록] 그 외 모든 예외 (invalid_grant 등)
+        catch (Exception e) {
+
+			// "invalid_grant" (토큰 만료)는 여기에서 처리
+			if (e.getMessage() != null
+					&& (e.getMessage().contains("invalid_grant") || e.getMessage().contains("Google 토큰 갱신 실패")
+							|| e.getMessage().contains("Access Token이 유효하지 않거나 비어있습니다"))) {
+
+				log.warn("⚠️ Google 토큰 갱신 실패(invalid_grant). 401 상태와 재연동 코드를 반환합니다.");
+
+				Map<String, String> errorResponse = new HashMap<>();
+				errorResponse.put("errorCode", "GOOGLE_REAUTH_REQUIRED");
+				errorResponse.put("message", "Google 토큰이 만료되었거나 무효화되었습니다. 계정 재연동이 필요합니다.");
+
+				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse); // ⭐️ 401 + JSON 반환
+			}
+            
+            // 진짜 알 수 없는 500 에러
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+		}
 	}
 
 	@PostMapping("/calendar/events")
 	public ResponseEntity<GoogleEventResponseDTO> createEvent(Principal principal,
 			@RequestBody @Valid CalendarCreateRequest request) {
-		log.error("flag");
 		try {
-			
+
 			if (request == null || request.getEventData() == null) {
-				System.out.println("❌ 요청 본문(JSON)의 eventData 필드가 누락되었거나 null입니다.");
 				return ResponseEntity.badRequest().build(); // 400 Bad Request 반환
 			}
 
 			String userEmail = principal.getName();
 			String provider = "google";
-			
-			// AccessToken 가져오기 (TokenManagerService 등에서 조회 필요)
-			// 예시: String accessToken = tokenManagerService.getAccessToken(userEmail,
-			// provider);
-			// TODO: 실제 accessToken 조회 로직으로 교체해야 함
+
 			String accessToken = tokenManagerService.getToken(userEmail, provider);
-			log.error("flag2");
-			// GoogleEventRequestDTO를 그대로 전달 (DTO 변환 불필요)
+
+			String calendarId = request.getCalendarId();
+
+			// 2. 만약 null이거나 비어있다면, "primary"를 기본값으로 사용합니다.
+			if (calendarId == null || calendarId.isBlank()) {
+				calendarId = "primary";
+			}
 			GoogleEventResponseDTO response = calendarEventService.createCalendarEvent(userEmail, // principalName
 					provider, // provider
-					request.getCalendarId(), // calendarId
+					calendarId,
+					// request.getCalendarId(), // calendarId
 					accessToken, // accessToken
 					request.getEventData() // GoogleEventRequestDTO
 			);
@@ -101,10 +172,10 @@ public class CalendarEventController {
 			return ResponseEntity.ok(response);
 
 		} catch (IllegalArgumentException e) {
-			// 토큰 획득/유효성 검증 오류 시			
+			// 토큰 획득/유효성 검증 오류 시
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).build(); // 400 Bad Request
 
-		} catch (Exception e) {			
+		} catch (Exception e) {
 			e.printStackTrace();
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 		}
