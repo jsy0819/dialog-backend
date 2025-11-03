@@ -12,6 +12,7 @@ import com.dialog.CalendarEvent_.CalendarEvent;
 import com.dialog.CalendarEvent_.CalendarEventResponse;
 import com.dialog.CalendarEvent_.GoogleEventRequestDTO;
 import com.dialog.CalendarEvent_.GoogleEventResponseDTO;
+import com.dialog.token.service.SocialTokenService;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.repository.MeetUserRepository;
 
@@ -26,7 +27,7 @@ public class CalendarEventService {
 
 	// 1. 필수 의존성 필드 선언 (Controller의 호출 로직에 맞춰 모두 주입)
 	private final CalendarEventRepository calendarEventRepository;
-	private final TokenManagerService tokenManagerService;
+	private final SocialTokenService tokenManagerService;
 	private final GoogleCalendarApiClient googleCalendarApiClient;
 	private final MeetUserRepository meetUserRepository;
 
