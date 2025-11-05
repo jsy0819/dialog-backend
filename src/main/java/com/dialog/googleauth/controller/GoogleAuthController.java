@@ -1,4 +1,4 @@
-package com.dialog.GoogleAuth.Controller;
+package com.dialog.googleauth.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.dialog.GoogleAuth.Service.GoogleAuthService;
+import com.dialog.googleauth.service.GoogleAuthService;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +22,6 @@ public class GoogleAuthController {
 
     private final GoogleAuthService googleAuthService;
 
-    /**
-     * [신규 API] 카카오/서비스 계정 사용자가 Google 연동을 시작하기 위해 호출하는 API.
-     * JWT 인증이 반드시 필요합니다.
-     */
     @GetMapping("/api/calendar/link/start")
     public ResponseEntity<?> startGoogleAccountLink(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails)) {
@@ -43,10 +39,6 @@ public class GoogleAuthController {
         return ResponseEntity.ok(Map.of("authUrl", authUrl));
     }
 
-    /**
-     * [신규 콜백] Google Console에 등록해야 하는 새로운 Redirect URI.
-     * Google 인증 성공 시 'code'와 'state'를 받습니다.
-     */
     @GetMapping("/auth/google/link/callback")
     public void handleGoogleLinkCallback(@RequestParam("code") String code, 
                                          @RequestParam("state") String state,

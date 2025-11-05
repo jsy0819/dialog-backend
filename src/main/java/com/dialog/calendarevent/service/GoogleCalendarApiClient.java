@@ -1,18 +1,21 @@
-package com.dialog.CalendarEvent.Service;
-
-import com.dialog.CalendarEvent_.CalendarEventResponse;
-import com.dialog.CalendarEvent_.EventDateTimeDTO;
-import com.dialog.CalendarEvent_.GoogleEventRequestDTO;
-import com.dialog.CalendarEvent_.GoogleEventResponseDTO;
+package com.dialog.calendarevent.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
-import com.dialog.CalendarEvent_.EventType;
+
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import com.dialog.calendarevent.domain.CalendarEventResponse;
+import com.dialog.calendarevent.domain.EventDateTimeDTO;
+import com.dialog.calendarevent.domain.EventType;
+import com.dialog.calendarevent.domain.GoogleEventRequestDTO;
+import com.dialog.calendarevent.domain.GoogleEventResponseDTO;
+
 import org.springframework.http.MediaType;
 
 import java.time.LocalDate;
@@ -119,10 +122,6 @@ public class GoogleCalendarApiClient {
 		}
 	}
 
-	/**
-	 * Google Calendar API 응답 객체(GoogleEventResponseDTO)를 내부 표준
-	 * DTO(CalendarEventDTO)로 변환합니다.
-	 */
 	private CalendarEventResponse convertToCalendarEventDTO(GoogleEventResponseDTO googleEvent) {
 
 		EventDateTimeDTO startDateTimeDTO = (EventDateTimeDTO) googleEvent.getStart();
@@ -140,13 +139,8 @@ public class GoogleCalendarApiClient {
 		}
 
 		return CalendarEventResponse.builder().id(null) // Google 이벤트는 우리 DB ID가 없음
-				.userId(null)
-				.title(googleEvent.getSummary())
-				.eventDate(eventDateStr)
-				.time(null)
-				.eventType("MEETING")
-				.isImportant(false)
-				.sourceId(googleEvent.getId()).googleEventId(googleEvent.getId()).createdAt(null) 
+				.userId(null).title(googleEvent.getSummary()).eventDate(eventDateStr).time(null).eventType("MEETING")
+				.isImportant(false).sourceId(googleEvent.getId()).googleEventId(googleEvent.getId()).createdAt(null)
 				.build();
 	}
 
@@ -185,5 +179,59 @@ public class GoogleCalendarApiClient {
 			return EventType.ALL_DAY; // date 필드가 있으면 종일 일정
 		}
 		return EventType.NORMAL; // dateTime 필드가 있으면 일반 일정 (NORMAL로 가정)
+	}
+
+	public GoogleEventResponseDTO patchEvent(String accessToken, String calendarId, String eventId,
+			GoogleEventRequestDTO eventData) {
+
+		if (eventData == null) {
+			throw new IllegalArgumentException("eventData가 null입니다.");
+		}
+
+		final String GOOGLE_EVENT_PATCH_URL = GOOGLE_CALENDAR_URL + "/{eventId}";
+
+		try {
+			GoogleEventResponseDTO responseBody = webClient.patch().uri(GOOGLE_EVENT_PATCH_URL, calendarId, eventId)
+					.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken).contentType(MediaType.APPLICATION_JSON)
+					.bodyValue(eventData).retrieve().onStatus(HttpStatusCode::isError, response -> {
+						log.error("Google Calendar 이벤트 수정(Patch) 실패. Status: {}", response.statusCode());
+						return Mono.error(new RuntimeException(
+								"Google Calendar API 수정(Patch) 중 오류 발생: " + response.statusCode()));
+					}).bodyToMono(GoogleEventResponseDTO.class).block();
+
+			if (responseBody == null) {
+				throw new RuntimeException("Google Calendar 이벤트 수정 후 응답 본문이 비어있습니다.");
+			}
+			return responseBody;
+
+		} catch (Exception e) {
+			log.error("Google API 통신 중 일정 수정(Patch) 예외 발생", e);
+			throw new RuntimeException("일정 수정(Patch) API 통신 실패", e);
+		}
+	}
+
+	public void deleteEvent(String accessToken, String calendarId, String eventId) {
+		final String GOOGLE_EVENT_DELETE_URL = GOOGLE_CALENDAR_URL + "/{eventId}";
+		try {
+			webClient.delete() //2. [핵심] .delete() 메서드 사용
+					.uri(GOOGLE_EVENT_DELETE_URL, calendarId, eventId) // 3. URL 변수 매핑
+					.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken) // 4. 헤더 설정
+					.retrieve().onStatus(HttpStatusCode::isError, response -> {
+						log.error("Google Calendar 이벤트 삭제(Delete) 실패. Status: {}", response.statusCode());
+
+						if (response.statusCode().equals(HttpStatus.UNAUTHORIZED)
+								|| response.statusCode().equals(HttpStatus.FORBIDDEN)) {
+							return Mono.error(
+									new RuntimeException("Google API 오류(invalid_grant): " + response.statusCode()));
+						}
+						return Mono.error(new RuntimeException(
+								"Google Calendar API 삭제(Delete) 중 오류 발생: " + response.statusCode()));
+					}).bodyToMono(Void.class)
+					.block();
+
+		} catch (Exception e) {
+			log.error("Google API 통신 중 일정 삭제(Delete) 예외 발생", e);			
+			throw new RuntimeException("일정 삭제(Delete) API 통신 실패", e);
+		}
 	}
 }

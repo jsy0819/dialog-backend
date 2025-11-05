@@ -1,4 +1,4 @@
-package com.dialog.CalendarEvent.Service;
+package com.dialog.calendarevent.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;

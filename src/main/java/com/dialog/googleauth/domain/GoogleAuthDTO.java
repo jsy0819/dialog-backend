@@ -1,17 +1,13 @@
-package com.dialog.GoogleAuth.DTO;
+package com.dialog.googleauth.domain;
 
 import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
+
 
 @Data
-//@Component
-//@ConfigurationProperties(prefix = "google")
 @ConfigurationProperties(prefix = "oauth2")
 public class GoogleAuthDTO {
 	
