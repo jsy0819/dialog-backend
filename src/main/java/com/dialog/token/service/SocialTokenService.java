@@ -9,7 +9,7 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.dialog.calendarevent.service.GoogleTokenDto;
-import com.dialog.googleauth.dto.GoogleAuthDTO;
+import com.dialog.googleauth.domain.GoogleAuthDTO;
 import com.dialog.token.domain.UserSocialToken;
 import com.dialog.token.repository.UserSocialTokenRepository;
 import com.dialog.user.domain.MeetUser;

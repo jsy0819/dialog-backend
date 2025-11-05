@@ -11,7 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.dialog.googleauth.dto.GoogleAuthDTO;
+import com.dialog.googleauth.domain.GoogleAuthDTO;
 import com.dialog.security.oauth2.CustomOAuth2User;
 import com.dialog.token.domain.UserSocialToken;
 import com.dialog.token.repository.UserSocialTokenRepository;

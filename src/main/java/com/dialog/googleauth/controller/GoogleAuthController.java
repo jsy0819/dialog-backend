@@ -22,10 +22,6 @@ public class GoogleAuthController {
 
     private final GoogleAuthService googleAuthService;
 
-    /**
-     * [신규 API] 카카오/서비스 계정 사용자가 Google 연동을 시작하기 위해 호출하는 API.
-     * JWT 인증이 반드시 필요합니다.
-     */
     @GetMapping("/api/calendar/link/start")
     public ResponseEntity<?> startGoogleAccountLink(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails)) {

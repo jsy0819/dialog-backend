@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
 
-import com.dialog.googleauth.dto.GoogleAuthDTO;
+import com.dialog.googleauth.domain.GoogleAuthDTO;
 
 @SpringBootApplication
 @EnableConfigurationProperties(GoogleAuthDTO.class)
