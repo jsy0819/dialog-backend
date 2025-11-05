@@ -1,4 +1,4 @@
-package com.dialog.GoogleAuth.DTO;
+package com.dialog.googleauth.dto;
 
 import java.util.Map;
 

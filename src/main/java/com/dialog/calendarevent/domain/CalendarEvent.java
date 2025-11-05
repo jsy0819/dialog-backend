@@ -1,4 +1,4 @@
-package com.dialog.CalendarEvent_;
+package com.dialog.calendarevent.domain;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -75,11 +75,8 @@ public class CalendarEvent {
         this.eventDate = eventDate;
         this.eventTime = eventTime;
         this.eventType = eventType;
-    }
-    
-    /**
-     * 중요 표시 상태를 토글
-     */
+    }    
+
     public void toggleImportance() {
         this.isImportant = !this.isImportant;
     }

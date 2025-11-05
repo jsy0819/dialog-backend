@@ -1,4 +1,4 @@
-package com.dialog.CalendarEvent_;
+package com.dialog.calendarevent.domain;
 
 public enum EventType {
     NORMAL, 
