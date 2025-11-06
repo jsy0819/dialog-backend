@@ -4,10 +4,6 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * JS 클라이언트에서 Spring Controller로 전송하는 최종 요청 DTO. Google Calendar API 호출에 필요한
- * 데이터와 함께 추가적인 메타데이터를 담을 수 있습니다.
- */
 @Getter
 @Setter
 public class CalendarCreateRequest {
