@@ -14,10 +14,10 @@ public class CalendarEventResponse {
 	private final Long userId;
 	private final String title;
 
-	private final String eventDate; // LocalDate -> String
+	private final String eventDate;
 
-	private final LocalTime time; // (JS에서 사용 안 함)
-	private final String eventType; // "type" -> "eventType"
+	private final LocalTime time; 
+	private final String eventType;
 
 	private final boolean isImportant;
 	private final String sourceId;
@@ -42,13 +42,8 @@ public class CalendarEventResponse {
 				.eventDate(entity.getEventDate() != null ? entity.getEventDate().toString() : null)
 
 				.time(entity.getEventTime())
-
-				// [수정 4] 필드명을 "eventType"으로 변경
 				.eventType(entity.getEventType().name())
-
-				.isImportant(entity.isImportant()).sourceId(sourceId).googleEventId(entity.getGoogleEventId()) // ⭐️
-																												// googleEventId
-																												// 매핑 추가
+				.isImportant(entity.isImportant()).sourceId(sourceId).googleEventId(entity.getGoogleEventId())
 				.createdAt(entity.getCreatedAt()).build();
 	}
 }
