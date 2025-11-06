@@ -15,7 +15,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class MeetUserDto {
 
-	// --- 회원가입(Request) 시 사용되는 필드 ---
+	// 회원가입(Request) 시 사용되는 필드
 	@NotBlank
 	@Email
 	@Size(max = 100)
@@ -32,26 +32,31 @@ public class MeetUserDto {
 	@Size(max = 100)
 	private String name;
 
-	// --- 정보 조회(Response) 시 사용되는 필드 ---
+	// 정보 조회 시 사용되는 필드 
 	private String profileImgUrl;
 	private String job; 
 	private String position; 
 
-	// --- 소셜 로그인 관련 필드 ---
+	// 소셜 로그인 관련 필드
 	private String socialType;
 	private String snsId;
+	
+	// 권한 추가
+	private String role; // 추가
 
 	@Builder
-	public MeetUserDto(String email, String password, Boolean terms, String name, String profileImgUrl, String job, String position, String socialType, String snsId) {
-		this.email = email;
-		this.password = password;
-		this.terms = terms;
-		this.name = name;
-		this.profileImgUrl = profileImgUrl;
-		this.job = job;
-		this.position = position;
-		this.socialType = socialType;
-		this.snsId = snsId;
+    public MeetUserDto(String email, String password, Boolean terms, String name,
+            String profileImgUrl, String job, String position, String socialType, String snsId, String role) {
+	this.email = email;
+	this.password = password;
+	this.terms = terms;
+	this.name = name;
+	this.profileImgUrl = profileImgUrl;
+	this.job = job;
+	this.position = position;
+	this.socialType = socialType;
+	this.snsId = snsId;
+	this.role = role;
 	}
 
 
@@ -61,11 +66,12 @@ public class MeetUserDto {
                 .email(user.getEmail())
                 .name(user.getName())
                 .profileImgUrl(user.getProfileImgUrl())
-                .job(user.getJob().name()) 
-                .position(user.getPosition().name()) 
+                .job(user.getJob().name())
+                .position(user.getPosition().name())
                 .socialType(user.getSocialType())
                 .snsId(user.getSnsId())
+                .role(user.getRole() != null ? user.getRole().name() : null) // 권한도 함께 변환
                 .build();
-	}
+    }
 
 }

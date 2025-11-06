@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.dialog.security.jwt.JwtTokenProvider;
 import com.dialog.security.oauth2.SocialUserInfo;
 import com.dialog.user.domain.MeetUser;
+import com.dialog.user.domain.Role;
 import com.dialog.user.repository.MeetUserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class MeetUserRegistrationService {
+public class SocialRegistrationService {
 
     private final MeetUserRepository meetUserRepository;
     private final PasswordEncoder passwordEncoder;
@@ -58,6 +59,7 @@ public class MeetUserRegistrationService {
                          .snsId(socialId)
                          .socialType(provider)
                          .profileImgUrl(socialUserInfo.getProfileImageUrl())
+                         .role(Role.USER)
                          .build(); 	        
                 log.info("신규 사용자 생성 - 이름: {}, 이메일: {}", newUser.getName(), newUser.getEmail());
     	        return meetUserRepository.save(newUser);

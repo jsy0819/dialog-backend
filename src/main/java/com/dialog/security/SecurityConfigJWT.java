@@ -15,7 +15,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import com.dialog.security.jwt.JwtAuthenticationFilter;
 import com.dialog.security.jwt.JwtTokenProvider;
 import com.dialog.security.oauth2.OAuth2AuthenticationFailurHandler;
-import com.dialog.security.oauth2.OAuth2AuthenticationSuccessHandlerJWT;
+import com.dialog.security.oauth2.OAuth2AuthenticationSuccessHandler;
 import com.dialog.user.service.CustomOAuth2UserService;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -30,8 +30,7 @@ public class SecurityConfigJWT {
     private final MeetAuthenticationFaliureHandler faliureHandler;              // 폼 로그인 실패 시 처리기
     private final MeetAuthenticationSuccessHandler successHandler;              // 폼 로그인 성공 시 처리기
     private final OAuth2AuthenticationFailurHandler oAuth2faliureHandler;        // OAuth2 로그인 실패 핸들러
-    private final OAuth2AuthenticationSuccessHandlerJWT oAuth2successHandler;      // OAuth2 로그인 성공 핸들러 JWT
-//    private final OAuth2AuthenticationSuccessHandler oAuth2successHandler;       // OAuth2 로그인 성공 핸들러
+    private final OAuth2AuthenticationSuccessHandler oAuth2successHandler;      // OAuth2 로그인 성공 핸들러 JWT
     private final CustomOAuth2UserService customOAuth2UserService;               // OAuth2UserService 커스텀 구현체
     private final JwtTokenProvider jwtTokenProvider;                             // JWT 토큰 생성/검증기
     private final OAuth2AuthorizationRequestResolver customAuthorizationRequestResolver;
@@ -59,8 +58,12 @@ public class SecurityConfigJWT {
             
             // 5. 권한 설정: 지정된 URL만 무인증 접근 가능, 기타는 인증 필요
            .authorizeHttpRequests(auth -> auth
-               .requestMatchers("/login", "/main", "/static/**", "/css/**", "/js/**", "/images/**").permitAll()
-               .requestMatchers("/api/reissue").permitAll()
+    		   .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/me", "/api/reissue").permitAll()
+    		   // 추후 스프링 내부에서 css, js, images 사용시 주석 해제후 사용
+//    		   .requestMatchers("/css/**",
+//    				   "/js/**", "/images/**").permitAll()
+               .requestMatchers("/api/admin/**").hasRole("ADMIN")
+               .requestMatchers("/public/**").permitAll() // 공개 API
                .anyRequest().authenticated()  // 나머지 요청은 인증 필요
            )
             // 6. 폼 로그인 비활성화 (JWT 비사용 시 활성화 가능하여 주석 처리)
@@ -68,7 +71,6 @@ public class SecurityConfigJWT {
             
             // 7. OAuth2 로그인 설정: 커스텀 서비스 및 성공/실패 핸들러 설정
             .oauth2Login(oauth2 -> oauth2
-                   .loginPage("/login")
                    .userInfoEndpoint(userInfo -> userInfo
                        .userService(customOAuth2UserService)
                    )

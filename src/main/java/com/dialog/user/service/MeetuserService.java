@@ -12,17 +12,18 @@ import com.dialog.security.oauth2.SocialUserInfo;
 import com.dialog.security.oauth2.SocialUserInfoFactory;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.domain.MeetUserDto;
+import com.dialog.user.domain.Role;
 import com.dialog.user.domain.UserSettingsUpdateDto;
 import com.dialog.user.repository.MeetUserRepository;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
-@RequiredArgsConstructor // 생성자 주입
+@RequiredArgsConstructor 
 public class MeetuserService {
 
-    private final MeetUserRepository meetUserRepository; // DB 접근 리포지토리
-    private final PasswordEncoder passwordEncoder;       // 비밀번호 암호화/검증
+    private final MeetUserRepository meetUserRepository; 
+    private final PasswordEncoder passwordEncoder;       
 
     
 //      회원가입 처리 메서드
@@ -47,6 +48,7 @@ public class MeetuserService {
                 .socialType(dto.getSocialType())
                 .profileImgUrl(dto.getProfileImgUrl())
                 .snsId(dto.getSnsId())
+                .role(Role.USER)
                 .build();
         meetUserRepository.save(user); // DB에 신규 회원 저장
     }

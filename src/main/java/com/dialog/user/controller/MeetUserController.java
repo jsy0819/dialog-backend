@@ -74,8 +74,9 @@ public class MeetUserController {
 	
 	         // 2. Spring Security 인증 객체 생성
 	         Authentication authentication = new UsernamePasswordAuthenticationToken(
-	             user.getEmail(), null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
-	         );
+	        		    user.getEmail(), null, 
+	        		    List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+    		 );
 	
 	         // 3. 인증 정보를 기반으로 JWT 액세스 토큰 생성
 	         String token = jwtTokenProvider.createToken(authentication);
@@ -92,7 +93,8 @@ public class MeetUserController {
 	         // 사용자 기본 정보(name, email) JSON 형태로 포함
 	         result.put("user", Map.of(
 	                 "name", user.getName(),
-	                 "email", user.getEmail()
+	                 "email", user.getEmail(),
+	                 "role", user.getRole().name()
 	             ));
 	
 	         // 6. 성공 응답으로 클라이언트에 JSON 반환
@@ -112,7 +114,8 @@ public class MeetUserController {
 	     // name, email 등 필요한 필드를 JSON으로 반환
 	     return ResponseEntity.ok(Map.of(
 	         "name", dto.getName(),
-	         "email", dto.getEmail()
+	         "email", dto.getEmail(),
+	         "role", dto.getRole()
 	     ));	     
 	 }
 
