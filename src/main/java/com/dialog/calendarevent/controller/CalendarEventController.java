@@ -195,6 +195,7 @@ public class CalendarEventController {
 	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 	    }
 	}
+	// 캘린더 중요도 표시 하는 API
 	@PatchMapping("/{eventId}/importance")
     public ResponseEntity<Void> toggleImportance(@PathVariable Long eventId) {
         calendarEventService.toggleImportance(eventId);

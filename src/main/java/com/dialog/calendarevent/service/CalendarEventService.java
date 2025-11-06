@@ -160,7 +160,7 @@ public class CalendarEventService {
 	    }
 	    calendarEventRepository.delete(localEvent);
 	}
-
+	// 중요도 표기 API
 	public void toggleImportance(Long eventId) {
 		CalendarEvent event = calendarEventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 일정을 찾을 수 없습니다. id=" + eventId));
