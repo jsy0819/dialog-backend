@@ -93,6 +93,11 @@ public class MeetUser {
         socialTokens.add(token);
         token.setUser(this);
     }
+    
+    // 유저 권한 추가
+    @Enumerated(EnumType.STRING)
+    private Role role;
+
 
     //  JPA를 위한 기본 생성자.
    protected MeetUser() {
@@ -100,13 +105,15 @@ public class MeetUser {
 
    
    @Builder
-   public MeetUser(String email, String password, String name, String socialType, String snsId, String profileImgUrl) {
+   public MeetUser(String email, String password, String name, String socialType, String snsId, String profileImgUrl, Role role) {
       this.email = email;
       this.password = password;
       this.name = name;
       this.socialType = socialType;
       this.snsId = snsId;
       this.profileImgUrl = profileImgUrl;
+      // role 값이 null 일 때 기본값을 USER로 설정
+      this.role = role != null ? role : Role.USER; 
    }
 
    

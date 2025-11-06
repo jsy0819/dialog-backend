@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
-    private final MeetUserRegistrationService registrationService;
+    private final SocialRegistrationService registrationService;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -49,9 +49,11 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         MeetUser user = registrationService.saveOrUpdateSocialMember(socialUserInfo, registId);
 
         // 6. 권한 설정 (여기서는 임시로 USER_ROLE 권한 부여)
+        String roleName = user.getRole() != null ? user.getRole().name() : "USER";
         Set<SimpleGrantedAuthority> authorities = Set.of(
-            new SimpleGrantedAuthority("ROLE_USER")
+            new SimpleGrantedAuthority("ROLE_" + roleName)
         );
+
 
         // 7. CustomOAuth2User 객체 생성해 리턴
         return new CustomOAuth2User(

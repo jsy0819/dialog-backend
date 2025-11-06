@@ -90,9 +90,9 @@ public class JwtTokenProvider {
         
     }
     
-    // 2. JWT 토큰 발급 메서드: MeetUser 객체 받으면 토큰 생성 (추가된 로직 - OAuth2 성공 핸들러용)
+    // JWT 토큰 발급 메서드: MeetUser 객체 받으면 토큰 생성 (추가된 로직 - OAuth2 성공 핸들러용)
     public String createToken(MeetUser user) {
-    	 final String authorities = "ROLE_USER";  
+    	final String authorities = "ROLE_" + (user.getRole() != null ? user.getRole().name() : "USER"); 
 
         long now = (new Date()).getTime();
         Date validity = new Date(now + this.validityInMilliseconds);

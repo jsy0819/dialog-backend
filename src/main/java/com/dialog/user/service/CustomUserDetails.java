@@ -10,35 +10,30 @@ import org.springframework.security.core.userdetails.UserDetails;
 import com.dialog.user.domain.MeetUser;
 
 public class CustomUserDetails implements UserDetails {
-    private Long id;
-    private String username; // 로그인 아이디
-    private String password; // 암호화된 비밀번호
-    private Collection<? extends GrantedAuthority> authorities; // 권한 목록
+	
+    private final MeetUser user;
 
     public CustomUserDetails(MeetUser user) {
-        this.id = user.getId(); // DB PK 저장
-        this.username = user.getEmail();
-        this.password = user.getPassword();
-        // 권한은 임시로 ROLE_USER 단일 권한 할당(필요시 user 권한 정보 사용 가능)
-        this.authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        this.user = user;
     }
 
     public Long getId() {
-        return id;
+        return user.getId();
     }
-
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return authorities;
+        String roleName = user.getRole() != null ? user.getRole().name() : "USER";
+        return List.of(new SimpleGrantedAuthority("ROLE_" + roleName));
     }
     @Override
     public String getPassword() {
-        return password;
+    	return user.getPassword(); 
     }
+    
     @Override
-    public String getUsername() {
-        return username;
+    public String getUsername() { 
+    	return user.getEmail(); 
     }
 
     // 계정 만료 여부 (false면 만료)

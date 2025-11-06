@@ -2,7 +2,7 @@ package com.dialog.security.oauth2;
 
 import java.io.IOException;
 
-
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.stereotype.Component;
@@ -15,6 +15,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class OAuth2AuthenticationFailurHandler implements AuthenticationFailureHandler {
+	
+    @Value("${app.oauth2.fail-uri}")
+    String failUrl;
 
 	@Override
 	public void onAuthenticationFailure(HttpServletRequest request, 
@@ -31,7 +34,7 @@ public class OAuth2AuthenticationFailurHandler implements AuthenticationFailureH
 	       request.getSession().setAttribute("socialErrorMessage", errMsg);
 	       
 		   // 로그인 페이지로 리다이렉트
-	       response.sendRedirect("http://localhost:5500/login?social_error=true");
+	       response.sendRedirect(failUrl);
 
 				
 	}
