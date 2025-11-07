@@ -21,12 +21,14 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 
  
 @Entity
 @Table(name = "user")
 @Getter
+@Setter
 public class MeetUser {
 
 
@@ -72,7 +74,9 @@ public class MeetUser {
    @Column(length = 50)
    private String socialType;
 
-    
+   @Column(nullable = false)
+   private boolean active = true;
+   
     // 소셜 로그인 고유 ID
    @Column(length = 100)
    private String snsId;
@@ -114,9 +118,12 @@ public class MeetUser {
       this.profileImgUrl = profileImgUrl;
       // role 값이 null 일 때 기본값을 USER로 설정
       this.role = role != null ? role : Role.USER; 
+      this.active = true; // 빌더 사용 시에도 기본값 true 설정
    }
-
    
+   public void deactivate() {
+       this.active = false;
+   }   
    
     // 소셜 로그인 시, 기존 소셜 토큰 업데이트 메서드    
     public void updateSocialToken(String provider, String accessToken, String refreshToken, LocalDateTime expiresAt) {

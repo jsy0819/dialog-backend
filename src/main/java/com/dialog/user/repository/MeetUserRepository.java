@@ -14,7 +14,6 @@ public interface MeetUserRepository extends JpaRepository<MeetUser, Long> {
     // 소셜 로그인 고유 ID 조회
     Optional<MeetUser> findBySnsId(String snsId);
 
-    // email 컬럼이 DB에 존재하는지 여부 확인 (중복 체크 등에 활용)
     boolean existsByEmail(String email);
 
 }

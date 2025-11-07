@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -121,5 +122,22 @@ public class MeetingService {
         // 6. List 로 추출한 키워드, 참가자 이름을 DTO로 반환
         return new MeetingCreateResponseDto(meeting, participants, keywords);
     }
+	
+	public List<MeetingCreateResponseDto> getAllMeetings() {
+	    List<Meeting> meetings = meetingRepository.findAll();
+	    return meetings.stream()
+	            .map(meeting -> {
+	                List<String> participantNames = meeting.getParticipants().stream()
+	                        .map(Participant::getName) // 또는 Participant::getSpeakerId
+	                        .collect(Collectors.toList());
+
+	                List<String> keywordTexts = meeting.getKeywords().stream()
+	                        .map(Keyword::getName)
+	                        .collect(Collectors.toList());
+
+	                return new MeetingCreateResponseDto(meeting, participantNames, keywordTexts);
+	            })
+	            .collect(Collectors.toList());
+	}
 
 }
