@@ -82,12 +82,12 @@ public class MeetUser {
    private String snsId;
 
     
-    //계정 생성일
+   //계정 생성일
    @CreationTimestamp
    @Column(name = "created_at", nullable = false, updatable = false)
    private LocalDateTime createdAt;
 
-   // 소셜 토큰
+   	// 소셜 토큰
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY,
             cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserSocialToken> socialTokens = new ArrayList<>();
@@ -106,7 +106,6 @@ public class MeetUser {
     //  JPA를 위한 기본 생성자.
    protected MeetUser() {
    }
-
    
    @Builder
    public MeetUser(String email, String password, String name, String socialType, String snsId, String profileImgUrl, Role role) {

@@ -16,7 +16,7 @@ public class CalendarEventResponse {
 
 	private final String eventDate;
 
-	private final LocalTime time; 
+	private final LocalTime time;
 	private final String eventType;
 
 	private final boolean isImportant;
@@ -40,10 +40,7 @@ public class CalendarEventResponse {
 
 		return CalendarEventResponse.builder().id(entity.getId()).userId(entity.getUserId()).title(entity.getTitle())
 				.eventDate(entity.getEventDate() != null ? entity.getEventDate().toString() : null)
-
-				.time(entity.getEventTime())
-				.eventType(entity.getEventType().name())
-				.isImportant(entity.isImportant()).sourceId(sourceId).googleEventId(entity.getGoogleEventId())
-				.createdAt(entity.getCreatedAt()).build();
+				.time(entity.getEventTime()).eventType(entity.getEventType().name()).isImportant(entity.isImportant())
+				.sourceId(sourceId).googleEventId(entity.getGoogleEventId()).createdAt(entity.getCreatedAt()).build();
 	}
 }

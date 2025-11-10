@@ -45,6 +45,7 @@ public class AdminService {
 	    
 	    meetUserRepository.delete(user);
 	}
+	
 	@Transactional
     public void updateUserSettings(Long userId, UserSettingsUpdateDto updateDto) {
         MeetUser user = meetUserRepository.findById(userId)

@@ -15,6 +15,7 @@ import com.dialog.calendarevent.domain.EventDateTimeDTO;
 import com.dialog.calendarevent.domain.EventType;
 import com.dialog.calendarevent.domain.GoogleEventRequestDTO;
 import com.dialog.calendarevent.domain.GoogleEventResponseDTO;
+import com.dialog.exception.GoogleOAuthException;
 
 import org.springframework.http.MediaType;
 
@@ -64,7 +65,7 @@ public class GoogleCalendarApiClient {
 						// 오류 발생 시 사용자 정의 예외를 발생시킵니다.
 						// 이 단계에서 403, 401 오류 등을 잡아서 상위 레이어로 전달해야 합니다.
 						return Mono.error(
-								new RuntimeException("Google Calendar API 호출 중 오류 발생: " + response.statusCode()));
+								new GoogleOAuthException("Google Calendar API 호출 중 오류 발생: " + response.statusCode()));
 					})
 					// 응답을 GoogleEventResponseDTO 컨테이너 객체로 파싱
 					.bodyToMono(GoogleEventResponseDTO.class).block(); // 동기적으로 결과 대기
@@ -80,10 +81,12 @@ public class GoogleCalendarApiClient {
 					.collect(Collectors.toList());
 
 		} catch (Exception e) {
-			log.error("Google API 통신 중 예외 발생", e);
-			// 통신 실패 시 빈 리스트를 반환하여 서비스 로직이 중단되지 않도록 처리합니다.
-			// 현재 담당자 부재로 인한 403 오류 상황에서도 앱이 작동하도록 도와줍니다.
-			return Collections.emptyList();
+			log.error("Google API 통신 중 예외 발생", e);         
+            
+            if (e instanceof GoogleOAuthException) {
+                throw (GoogleOAuthException) e; // 이미 GoogleOAuthException이면 그대로 던짐
+            }
+			throw new GoogleOAuthException("Google API 통신 중 예외 발생: " + e.getMessage());
 		}
 	}
 
@@ -106,19 +109,20 @@ public class GoogleCalendarApiClient {
 					// 3. API 호출 및 응답 처리
 					.retrieve().onStatus(HttpStatusCode::isError, response -> {
 						log.error("Google Calendar 이벤트 생성 실패. Status: {}", response.statusCode());
+						// [ 4. 수정 ] RuntimeException -> GoogleOAuthException
 						return Mono.error(
-								new RuntimeException("Google Calendar API 생성 중 오류 발생: " + response.statusCode()));
+								new GoogleOAuthException("Google Calendar API 생성 중 오류 발생: " + response.statusCode()));
 					}).bodyToMono(GoogleEventResponseDTO.class) // 4. 응답 JSON을 DTO로 파싱
 					.block(); // 동기적으로 결과 대기
 
 			if (responseBody == null) {
-				throw new RuntimeException("Google Calendar 이벤트 생성 후 응답 본문이 비어있습니다.");
+				throw new GoogleOAuthException("Google Calendar 이벤트 생성 후 응답 본문이 비어있습니다.");
 			}
 			return responseBody;
 
 		} catch (Exception e) {
-			log.error("Google API 통신 중 일정 생성 예외 발생", e);
-			throw new RuntimeException("일정 생성 API 통신 실패", e);
+			log.error("Google API 통신 중 일정 생성 예외 발생", e); 
+			throw new GoogleOAuthException("일정 생성 API 통신 실패");
 		}
 	}
 
@@ -231,7 +235,7 @@ public class GoogleCalendarApiClient {
 
 		} catch (Exception e) {
 			log.error("Google API 통신 중 일정 삭제(Delete) 예외 발생", e);			
-			throw new RuntimeException("일정 삭제(Delete) API 통신 실패", e);
+			throw new GoogleOAuthException("일정 삭제(Delete) API 통신 실패");
 		}
 	}
 }
