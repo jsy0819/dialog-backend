@@ -14,9 +14,12 @@ import com.dialog.keyword.repository.KeywordRepository;
 import com.dialog.meeting.domain.Meeting;
 import com.dialog.meeting.domain.MeetingCreateRequestDto;
 import com.dialog.meeting.domain.MeetingCreateResponseDto;
+import com.dialog.meeting.domain.MeetingFinishRequestDto;
 import com.dialog.meeting.repository.MeetingRepository;
 import com.dialog.participant.domain.Participant;
 import com.dialog.participant.repository.ParticipantRepository;
+import com.dialog.recording.domain.Recording;
+import com.dialog.recording.repository.RecordingRepository;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.repository.MeetUserRepository;
 
@@ -32,7 +35,8 @@ public class MeetingService {
     private final MeetUserRepository meetUserRepository; 
     private final ParticipantRepository participantRepository;
     private final KeywordRepository keywordRepository;
-
+    private final RecordingRepository recordingRepository;
+    
     // 회의 생성
     @Transactional 
     public MeetingCreateResponseDto createMeeting(MeetingCreateRequestDto requestDto, Long hostUserId) throws IllegalAccessException {
@@ -139,5 +143,36 @@ public class MeetingService {
 	            })
 	            .collect(Collectors.toList());
 	}
-
+	
+	// 회의 종료 추가 -> recording 저장
+	@Transactional
+	public void finishMeeting(Long meetingId, MeetingFinishRequestDto requestDto) {
+	    // 1. 회의 조회
+	    Meeting meeting = meetingRepository.findById(meetingId)
+	            .orElseThrow(() -> new IllegalArgumentException("회의를 찾을 수 없습니다. ID: " + meetingId));
+	    
+	    // 2. 회의 상태를 COMPLETED로 변경
+	    meeting.complete();
+	    
+	    // 3. Recording 정보가 있으면 저장
+	    if (requestDto.getRecording() != null) {
+	        MeetingFinishRequestDto.RecordingData recordingData = requestDto.getRecording();
+	        
+	        // 이미 Recording이 있는지 확인
+	        if (!recordingRepository.existsByMeetingId(meetingId)) {
+	            Recording recording = Recording.builder()
+	                    .meeting(meeting)
+	                    .audioFileUrl(recordingData.getAudioFileUrl())
+	                    .audioFileSize(recordingData.getAudioFileSize())
+	                    .audioFormat(recordingData.getAudioFormat())
+	                    .durationSeconds(recordingData.getDurationSeconds())
+	                    .build();
+	            
+	            recordingRepository.save(recording);
+	        }
+	    }
+	    
+	    // 4. 회의 엔티티 저장 (상태 변경 반영)
+	    meetingRepository.save(meeting);
+	}
 }
