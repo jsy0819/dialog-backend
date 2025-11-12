@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dialog.exception.SocialUserSaveException;
 import com.dialog.security.oauth2.CustomOAuth2User;
 import com.dialog.security.oauth2.SocialUserInfo;
 import com.dialog.security.oauth2.SocialUserInfoFactory;
@@ -46,14 +47,29 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                 registId, oauth2User.getAttributes()
         );
         // 5. 내부 DB에 사용자 정보 저장 또는 업데이트 (최종 로그인 시각 반영 등)
-        MeetUser user = registrationService.saveOrUpdateSocialMember(socialUserInfo, registId);
+
+        MeetUser user;
+        try {
+            user = registrationService.saveOrUpdateSocialMember(socialUserInfo, registId);
+        } catch (SocialUserSaveException e) {
+            log.error("소셜 사용자 정보 저장 실패", e);
+            // 커스텀 예외를 명확히 처리하여 재던짐
+            throw new OAuth2AuthenticationException("소셜 사용자 정보를 저장하는 중 오류가 발생했습니다.");
+        } catch (Exception e) {
+            log.error("소셜 사용자 정보 처리 중 예상치 못한 오류", e);
+            // 예상치 못한 예외는 별도로 처리
+            throw new OAuth2AuthenticationException("소셜 사용자 정보 처리 중 오류가 발생했습니다.");
+        }
+        
+        if (user == null) {
+            throw new OAuth2AuthenticationException("회원 정보를 찾을 수 없습니다.");
+        }
 
         // 6. 권한 설정 (여기서는 임시로 USER_ROLE 권한 부여)
         String roleName = user.getRole() != null ? user.getRole().name() : "USER";
         Set<SimpleGrantedAuthority> authorities = Set.of(
             new SimpleGrantedAuthority("ROLE_" + roleName)
         );
-
 
         // 7. CustomOAuth2User 객체 생성해 리턴
         return new CustomOAuth2User(
@@ -64,4 +80,3 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             );
     }
 }
-

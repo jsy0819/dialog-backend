@@ -80,7 +80,7 @@ public class SocialTokenService {
 	                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), clientResponse -> {
 	                    	return clientResponse.bodyToMono(String.class)
 	                                .flatMap(body -> {
-	                                    log.error("❌ Google Token API 에러 응답 수신. 상태: {}, 바디: {}", 
+	                                    log.error("Google Token API 에러 응답 수신. 상태: {}, 바디: {}", 
 	                                               clientResponse.statusCode(), body);
 	                                    if (body.contains("invalid_grant")) {
 	                                        // 무효화된 토큰 DB에서 삭제

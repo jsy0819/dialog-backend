@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.dialog.exception.UserNotFoundException;
 import com.dialog.googleauth.service.GoogleAuthService;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,36 +29,37 @@ public class GoogleAuthController {
             return ResponseEntity.status(401).body(Map.of("error", "인증이 필요합니다."));
         }
 
-        // 1. JWT에서 현재 로그인된 사용자의 ID를 추출합니다.
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        Long userId = googleAuthService.extractUserId(userDetails);
-
-        // 2. userId를 state에 담아 Google 인증 URL을 생성합니다.
-        String authUrl = googleAuthService.generateAuthUrl(userId);
-
-        // 3. 프론트엔드에 이 URL을 반환합니다. (프론트엔드는 이 URL로 리다이렉트)
-        return ResponseEntity.ok(Map.of("authUrl", authUrl));
+        try {
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            Long userId = googleAuthService.extractUserId(userDetails);
+            String authUrl = googleAuthService.generateAuthUrl(userId);
+            return ResponseEntity.ok(Map.of("authUrl", authUrl));
+        } catch (UserNotFoundException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "내부 서버 오류"));
+        }
     }
 
     @GetMapping("/auth/google/link/callback")
     public void handleGoogleLinkCallback(@RequestParam("code") String code, 
                                          @RequestParam("state") String state,
                                          HttpServletResponse response) throws IOException {
-        
         Long userId;
         try {
-            // 1. state 값을 Base64 디코딩하여 원본 userId를 복원합니다.
             userId = Long.parseLong(new String(Base64.getUrlDecoder().decode(state)));
         } catch (Exception e) {
-            // state가 잘못된 경우 (CSRF 공격 또는 오류)
             response.sendRedirect("/error-page?message=invalid_state");
             return;
         }
 
-        // 2. 획득한 code와 userId로 토큰 교환 및 Refresh Token 저장
-        googleAuthService.exchangeCodeAndSaveToken(userId, code);
-
-        // 3. 연동 성공 후 사용자를 캘린더 페이지(또는 홈)로 리다이렉트
-        response.sendRedirect("http://localhost:5500/home.html?link=success");
+        try {
+            googleAuthService.exchangeCodeAndSaveToken(userId, code);
+            response.sendRedirect("http://localhost:5500/home.html?link=success");
+        } catch (UserNotFoundException e) {
+            response.sendRedirect("/error-page?message=user_not_found");
+        } catch (IOException e) {
+            response.sendRedirect("/error-page?message=token_exchange_failed");
+        }
     }
 }
