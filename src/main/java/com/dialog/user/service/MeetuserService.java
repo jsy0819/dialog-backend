@@ -8,6 +8,13 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dialog.exception.InactiveUserException;
+import com.dialog.exception.InvalidPasswordException;
+import com.dialog.exception.OAuthUserNotFoundException;
+import com.dialog.exception.TermsNotAcceptedException;
+import com.dialog.exception.UserAlreadyExistsException;
+import com.dialog.exception.UserNotFoundException;
+import com.dialog.exception.UserRoleAccessDeniedException;
 import com.dialog.security.oauth2.SocialUserInfo;
 import com.dialog.security.oauth2.SocialUserInfoFactory;
 import com.dialog.user.domain.MeetUser;
@@ -34,11 +41,11 @@ public class MeetuserService {
     public void signup(MeetUserDto dto) {
         // 1. 약관 동의 필수 검사
         if (dto.getTerms() == null || !dto.getTerms()) {
-            throw new IllegalArgumentException("약관에 동의해야 가입할 수 있습니다.");
+            throw new TermsNotAcceptedException("약관에 동의해야 가입할 수 있습니다.");
         }
         // 2. 이메일 중복검사	
         if (meetUserRepository.existsByEmail(dto.getEmail())) {
-            throw new IllegalStateException("이미 가입된 이메일입니다.");
+            throw new UserAlreadyExistsException("이미 가입된 이메일입니다.");
         }
         // 3. DTO → Entity 변환, 비밀번호 암호화 후 저장
         MeetUser user = MeetUser.builder()
@@ -55,7 +62,6 @@ public class MeetuserService {
 
     
 //      현재 로그인한 유저 정보 조회 
-//      흐름:
 //      인증 안됐으면 예외 발생
 //      소셜(OAuth2) 로그인과 일반 로그인 분기
 //         - OAuth2User면 provider, snsId로 회원 조회(DB)
@@ -76,12 +82,17 @@ public class MeetuserService {
      
     public MeetUser login(String email, String rawPassword) {
         MeetUser user = meetUserRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("존재하지 않는 아이디입니다."));
-        // 비밀번호 불일치 시 예외 발생
+                .orElseThrow(() -> new UserNotFoundException("존재하지 않는 사용자 입니다."));
+        
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
-            throw new IllegalStateException("비밀번호가 올바르지 않습니다.");
+            throw new InvalidPasswordException("비밀번호가 올바르지 않습니다.");
         }
-        return user; // 인증 성공 시 회원 정보 반환
+        
+        if (!user.isActive()) {
+            throw new InactiveUserException("비활성화된 사용자입니다. 문의해 주세요.");
+        }
+        
+        return user;
     }
     
     // 설정 페이지에서 직무/직급 업데이트
@@ -98,12 +109,11 @@ public class MeetuserService {
     // 인증된 사용자 엔티티 조회
     private MeetUser getAuthenticatedUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new IllegalStateException("로그인 세션 없음");
+            throw new UserRoleAccessDeniedException("로그인 세션 없음 또는 권한이 없습니다.");
         }
         Object principal = authentication.getPrincipal();
         MeetUser user;
-        
-        // 소셜 로그인 (OAuth2User) 처리
+
         if (principal instanceof OAuth2User) {
             OAuth2AuthenticationToken authToken = (OAuth2AuthenticationToken) authentication;
             String provider = authToken.getAuthorizedClientRegistrationId();
@@ -111,15 +121,13 @@ public class MeetuserService {
             SocialUserInfo info = SocialUserInfoFactory.getSocialUserInfo(provider, oAuth2User.getAttributes());
             String snsId = provider + "_" + info.getId();
             user = meetUserRepository.findBySnsId(snsId)
-                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
-        
-        // 일반 로그인 (UserDetails) 처리
+                .orElseThrow(() -> new OAuthUserNotFoundException("회원 정보를 찾을 수 없습니다."));
         } else if (principal instanceof UserDetails) {
             String username = ((UserDetails) principal).getUsername();
             user = meetUserRepository.findByEmail(username)
-                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UserNotFoundException("회원 정보를 찾을 수 없습니다."));
         } else {
-            throw new IllegalArgumentException("알 수 없는 인증 방식입니다.");
+            throw new UserRoleAccessDeniedException("알 수 없는 인증 방식입니다.");
         }
         return user;
     }

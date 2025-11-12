@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dialog.exception.RefreshTokenException;
 import com.dialog.token.domain.RefreshToken;
 import com.dialog.token.domain.RefreshTokenDto;
 import com.dialog.token.repository.RefreshTokenRepository;
@@ -73,12 +74,12 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
         // 폐기된 토큰인지 체크 후 예외 발생
         if (refreshToken.isRevoked()) {
-            throw new RuntimeException("리프레시 토큰이 폐기되었습니다.");
+            throw new RefreshTokenException("리프레시 토큰이 폐기되었습니다.");
         }
 
         // 만료된 토큰인지 체크 후 예외 발생
         if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("리프레시 토큰이 만료되었습니다.");
+            throw new RefreshTokenException("리프레시 토큰이 만료되었습니다.");
         }
 
         // 모든 검사 통과하면 해당 토큰 리턴

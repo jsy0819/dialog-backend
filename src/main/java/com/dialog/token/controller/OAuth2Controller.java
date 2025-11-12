@@ -9,27 +9,31 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.dialog.exception.GoogleOAuthException;
 import com.dialog.token.service.SocialTokenService;
 
 import groovy.util.logging.Slf4j;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping
+@RequestMapping("/api/oauth2")
 @RequiredArgsConstructor
 @Slf4j
 public class OAuth2Controller {
 
     private final SocialTokenService socialTokenService;
 
-    @PostMapping("/api/oauth2/google/token")
+    @PostMapping("/google/token")
     public ResponseEntity<?> refreshToken(@RequestParam String userEmail) {
-        // 유저 이메일로 AccessToken 재발급 시도
         try {
+            // 유저 이메일로 AccessToken 재발급 시도
             String accessToken = socialTokenService.getToken(userEmail, "google");
             return ResponseEntity.ok(Map.of("accessToken", accessToken));
+        } catch (GoogleOAuthException e) {
+            // 커스텀 예외 처리 - 만료 등 OAuth 관련 오류
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (RuntimeException e) {
-            // Refresh Token 만료 등 예외 발생 시
+            // 그 외 예외도 UNAUTHORIZED 처리 권장
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         }
     }

@@ -17,6 +17,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
+import com.dialog.exception.InvalidJwtTokenException;
 import com.dialog.security.oauth2.CustomOAuth2User;
 import com.dialog.user.domain.MeetUser;
 
@@ -109,47 +110,40 @@ public class JwtTokenProvider {
     // JWT 토큰을 파싱해서 인증객체(Authentication)로 복원하는 메서드
     public Authentication getAuthentication(String token) {
         try {
-            // 토큰 검증(서명), Claims에서 주체, 권한 추출
             Claims claims = Jwts.parser()
                     .verifyWith(key)
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-           
+
             Collection<? extends GrantedAuthority> authorities;
             Object authClaim = claims.get("auth");
             if (authClaim != null) {
                 authorities = Arrays.stream(authClaim.toString().split(","))
-                    // 단순화된 로직: ROLE_USER가 그대로 SimpleGrantedAuthority 객체로 변환됨
-                    .map(SimpleGrantedAuthority::new) 
+                    .map(SimpleGrantedAuthority::new)
                     .collect(Collectors.toList());
             } else {
                 authorities = Arrays.asList(new SimpleGrantedAuthority("ROLE_USER"));
             }
 
-            // 사용자 이름 추출
             String username = claims.getSubject();
-
-            // UserDetailsService에서 CustomUserDetails 조회
             UserDetails principal = userDetailsService.loadUserByUsername(username);
 
             log.info("인증 정보 생성 완료");
 
-            // Authentication 객체 생성 및 반환
             return new UsernamePasswordAuthenticationToken(principal, token, authorities);
 
         } catch (Exception e) {
-            log.info("JWT 인증 정보 추출 중 오류가 발생했습니다. : " + e.getMessage());
-            e.printStackTrace();
-            return null;
+            log.error("JWT 인증 정보 추출 중 오류 발생: " + e.getMessage(), e);
+            throw new InvalidJwtTokenException("유효하지 않은 JWT 토큰입니다.", e);
         }
     }
 
     // JWT 유효성 검사 메서드 (서명/만료 등 체크)
-    public boolean validateToken(String token) {
+    public void validateTokenOrThrow(String token) {
         if (token == null || token.trim().isEmpty()) {
-            log.info("토큰이 null이거나 비어있습니다. ");
-            return false;
+            log.info("토큰이 null이거나 비어있습니다.");
+            throw new InvalidJwtTokenException("토큰이 비어있거나 없습니다.");
         }
         try {
             // JWT 파서에 서명키 등록 → 파싱 및 검증
@@ -158,22 +152,27 @@ public class JwtTokenProvider {
                 .build()
                 .parseSignedClaims(token);
             log.info("JWT 토큰 검증 성공!");
-            return true;
         } catch (SignatureException e) {
             log.warn("JWT 서명 검증 실패: " + e.getMessage());
+            throw new InvalidJwtTokenException("JWT 서명 검증 실패", e);
         } catch (SecurityException | MalformedJwtException e) {
             log.warn("잘못된 JWT 시그니쳐입니다. : " + e.getMessage());
+            throw new InvalidJwtTokenException("잘못된 JWT 시그니쳐", e);
         } catch (DecodingException e) {
             log.warn("JWT 디코딩 실패: " + e.getMessage());
+            throw new InvalidJwtTokenException("JWT 디코딩 실패", e);
         } catch (ExpiredJwtException e) {
             log.info("만료된 토큰이니 재발급이 필요합니다. : " + e.getMessage());
+            throw new InvalidJwtTokenException("만료된 토큰입니다.", e);
         } catch (UnsupportedJwtException e) {
             log.info("지원하지 않는 JWT 토큰입니다. : " + e.getMessage());
+            throw new InvalidJwtTokenException("지원하지 않는 JWT 토큰입니다.", e);
         } catch (IllegalArgumentException e) {
             log.info("토큰 형식 틀렸습니다. : " + e.getMessage());
+            throw new InvalidJwtTokenException("토큰 형식이 잘못되었습니다.", e);
         } catch (Exception e) {
             log.error("해당 에러를 알수 없습니다. : " + e.getMessage(), e);
+            throw new InvalidJwtTokenException("알 수 없는 오류가 발생했습니다.", e);
         }
-        return false;
     }
 }

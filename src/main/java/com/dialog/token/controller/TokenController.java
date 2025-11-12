@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.dialog.exception.RefreshTokenException;
 import com.dialog.token.service.TokenReissueService;
 
 import jakarta.servlet.http.Cookie;
@@ -40,6 +41,8 @@ public class TokenController {
             response.addCookie(accessTokenCookie);
 
             return ResponseEntity.ok("Access token 재발급");
+        } catch (RefreshTokenException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("유효하지 않은 리프레쉬 토큰 입니다.");
         }

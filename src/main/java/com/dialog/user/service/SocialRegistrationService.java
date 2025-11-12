@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dialog.exception.SocialUserSaveException;
 import com.dialog.security.jwt.JwtTokenProvider;
 import com.dialog.security.oauth2.SocialUserInfo;
 import com.dialog.user.domain.MeetUser;
@@ -28,48 +29,49 @@ public class SocialRegistrationService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public MeetUser saveOrUpdateSocialMember(SocialUserInfo socialUserInfo, String provider) {
-    	
-    	try {
-    	    // 1. 소셜 로그인 사용자의 고유 식별자 생성 
-    		log.info("소셜 사용자 정보 - 이름: {}, 이메일: {}, Provider: {}", socialUserInfo.getName(), socialUserInfo.getEmail(), provider);
-    	    String socialId = provider + "_" + socialUserInfo.getId();
+        
+        try {
+            // 1. 소셜 로그인 사용자의 고유 식별자 생성 
+            log.info("소셜 사용자 정보 - 이름: {}, 이메일: {}, Provider: {}", socialUserInfo.getName(), socialUserInfo.getEmail(), provider);
+            String socialId = provider + "_" + socialUserInfo.getId();
 
-    	    // 2. DB에서 기존 사용자 검색
-    	    Optional<MeetUser> existingUserOpt = this.meetUserRepository.findBySnsId(socialId);
+            // 2. DB에서 기존 사용자 검색
+            Optional<MeetUser> existingUserOpt = this.meetUserRepository.findBySnsId(socialId);
 
-    	    // 3. 기존 사용자라면 정보 업데이트 후 저장
-    	    if (existingUserOpt.isPresent()) {
-    	        MeetUser existingUser = existingUserOpt.get();
-    	        log.info("기존 회원 발견 - 기존 이름: {}, 기존 이메일: {}", existingUser.getName(), existingUser.getEmail());
+            // 3. 기존 사용자라면 정보 업데이트 후 저장
+            if (existingUserOpt.isPresent()) {
+                MeetUser existingUser = existingUserOpt.get();
+                log.info("기존 회원 발견 - 기존 이름: {}, 기존 이메일: {}", existingUser.getName(), existingUser.getEmail());
 
-    	        existingUser.updateSocialInfo(
-    	            socialUserInfo.getName(),
-    	            socialUserInfo.getProfileImageUrl()
-    	        );
-    	        log.info("기존 회원 발견 - 기존 이름: {}, 기존 이메일: {}", existingUser.getName(), existingUser.getEmail());
+                existingUser.updateSocialInfo(
+                    socialUserInfo.getName(),
+                    socialUserInfo.getProfileImageUrl()
+                );
+                log.info("기존 회원 발견 - 기존 이름: {}, 기존 이메일: {}", existingUser.getName(), existingUser.getEmail());
 
-    	        return meetUserRepository.save(existingUser);
-    	    }
-    	    // 4. 신규 사용자라면 새로 사용자 생성 후 저장
-    	    else {
-    	    	 MeetUser newUser = MeetUser.builder()
-                         .email(generateUniqueEmail(socialUserInfo.getEmail()))
-                         .name(socialUserInfo.getName())
-                         .password(passwordEncoder.encode(UUID.randomUUID().toString())) // 임시 비밀번호
-                         .snsId(socialId)
-                         .socialType(provider)
-                         .profileImgUrl(socialUserInfo.getProfileImageUrl())
-                         .role(Role.USER)
-                         .build(); 	        
+                return meetUserRepository.save(existingUser);
+            }
+            // 4. 신규 사용자라면 새로 사용자 생성 후 저장
+            else {
+                MeetUser newUser = MeetUser.builder()
+                    .email(generateUniqueEmail(socialUserInfo.getEmail()))
+                    .name(socialUserInfo.getName())
+                    .password(passwordEncoder.encode(UUID.randomUUID().toString())) // 임시 비밀번호
+                    .snsId(socialId)
+                    .socialType(provider)
+                    .profileImgUrl(socialUserInfo.getProfileImageUrl())
+                    .role(Role.USER)
+                    .build();         
                 log.info("신규 사용자 생성 - 이름: {}, 이메일: {}", newUser.getName(), newUser.getEmail());
-    	        return meetUserRepository.save(newUser);
-    	    }
-    	} catch (Exception e) {
-    		log.error("소셜 사용자 저장 중 오류 발생", e);
-    	    throw new RuntimeException("소셜 사용자 저장 중 오류가 발생했습니다.", e);
-    	}
+                return meetUserRepository.save(newUser);
+            }
+        } catch (Exception e) {
+            log.error("소셜 사용자 저장 중 오류 발생", e);
+            // 기존 RuntimeException 대신 커스텀 예외로 변경 권장 (예: SocialUserSaveException)
+            throw new SocialUserSaveException("소셜 사용자 저장 중 오류가 발생했습니다.", e);
+        }
     }
-
+    
     // 이메일 기반 고유 사용자명 생성 및 DB 중복 검사
     private String generateUniqueEmail(String email) {
     	

@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 
+import com.dialog.exception.UserNotFoundException;
 import com.dialog.meeting.repository.MeetingRepository;
 import com.dialog.participant.repository.ParticipantRepository;
 import com.dialog.token.repository.RefreshTokenRepository;
@@ -37,35 +38,30 @@ public class AdminService {
 
 	@Transactional
 	public void deleteUser(Long userId) {
-	    // 1. 삭제할 사용자 객체를 조회합니다.
 	    MeetUser user = meetUserRepository.findById(userId)
-	        .orElseThrow(() -> new IllegalArgumentException("해당 사용자가 존재하지 않습니다. id=" + userId));
-	    
+	        .orElseThrow(() -> new UserNotFoundException("해당 사용자가 존재하지 않습니다. id=" + userId));
+
 	    participantRepository.deleteBySpeakerId(user.getEmail()); 
-
 	    meetingRepository.deleteByHostUser(user); 
-
 	    refreshTokenRepository.deleteByUser(user);
-	    
 	    meetUserRepository.delete(user);
 	}
 	
 	@Transactional
-    public void updateUserSettings(Long userId, UserSettingsUpdateDto updateDto) {
-        MeetUser user = meetUserRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("해당 사용자가 존재하지 않습니다. id=" + userId));
+	public void updateUserSettings(Long userId, UserSettingsUpdateDto updateDto) {
+	    MeetUser user = meetUserRepository.findById(userId)
+	        .orElseThrow(() -> new UserNotFoundException("해당 사용자가 존재하지 않습니다. id=" + userId));
 
-        // DTO에 Job과 Position Enum이 있으므로 그대로 set 호출
-        if (updateDto.getJob() != null) {
-            user.setJob(updateDto.getJob());
-        }
-        if (updateDto.getPosition() != null) {
-            user.setPosition(updateDto.getPosition());
-        }
-        if (updateDto.getActive() != null) {
-            user.setActive(updateDto.getActive());
-        }
-    }
+	    if (updateDto.getJob() != null) {
+	        user.setJob(updateDto.getJob());
+	    }
+	    if (updateDto.getPosition() != null) {
+	        user.setPosition(updateDto.getPosition());
+	    }
+	    if (updateDto.getActive() != null) {
+	        user.setActive(updateDto.getActive());
+	    }
+	}
 	
 	// 가입한 유저수 조회
     public long getTotalUserCount() {

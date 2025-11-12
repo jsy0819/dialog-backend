@@ -1,5 +1,6 @@
 package com.dialog.user.controller;
 
+import com.dialog.exception.UserNotFoundException;
 import com.dialog.meeting.domain.Meeting;
 import com.dialog.meeting.domain.MeetingCreateResponseDto;
 import com.dialog.meeting.service.MeetingService;
@@ -10,6 +11,8 @@ import com.dialog.user.domain.UserSettingsUpdateDto;
 import com.dialog.user.service.AdminService;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -40,13 +43,23 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getAllUsers());
     }
     
+    // 유저 삭제
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/users/{userId}")
-    public ResponseEntity<Void> deleteUser(@PathVariable("userId") Long userId) {    	
-        adminService.deleteUser(userId);        
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> deleteUser(@PathVariable("userId") Long userId) {    
+        try {
+            adminService.deleteUser(userId);
+            return ResponseEntity.noContent().build();
+        } catch (UserNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "사용자 없음", "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "서버 오류", "message", e.getMessage()));
+        }
     }
-    
+
+    // 전체 회의 조회
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/meetings")
     public ResponseEntity<List<MeetingCreateResponseDto>> getAllMeetings() {
@@ -54,14 +67,22 @@ public class AdminController {
         return ResponseEntity.ok(meetings);
     }
     
+    // 유저 직무, 직급 설정
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/users/settings/{userId}")
-    public ResponseEntity<Void> updateUserSettings(
+    public ResponseEntity<?> updateUserSettings(
             @PathVariable("userId") Long userId,
             @RequestBody UserSettingsUpdateDto updateDto) {
-        
-        adminService.updateUserSettings(userId, updateDto);
-        return ResponseEntity.ok().build();
+        try {
+            adminService.updateUserSettings(userId, updateDto);
+            return ResponseEntity.ok().build();
+        } catch (UserNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "사용자 없음", "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "잘못된 요청", "message", e.getMessage()));
+        }
     }
     
     // 어드민 페이지 가입자 통계, 전체 회의수 조회 
