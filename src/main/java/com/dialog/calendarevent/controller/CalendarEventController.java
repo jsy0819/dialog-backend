@@ -113,10 +113,21 @@ public class CalendarEventController {
 		return ResponseEntity.ok().build();
 	}
 
-	// 캘린더 중요도 표시 하는 API
-	@PatchMapping("/{eventId}/importance")
-	public ResponseEntity<Void> toggleImportance(@PathVariable Long eventId) { 
-		calendarEventService.toggleImportance(eventId);
-		return ResponseEntity.ok().build();
-	}
+	@PatchMapping("/calendar/{eventId}/importance")
+    public ResponseEntity<Void> toggleImportance(
+            @PathVariable("eventId") String eventId,
+            Principal principal) {
+
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        // 현재 로그인한 사용자 이메일
+        String userEmail = principal.getName();
+
+        // [중요] 서비스 계층에도 userEmail과 eventId를 전달합니다.
+        calendarEventService.toggleImportance(userEmail, eventId);
+
+        return ResponseEntity.ok().build();
+    }
 }

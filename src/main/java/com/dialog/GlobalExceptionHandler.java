@@ -6,7 +6,7 @@ import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
+import org.springframework.security.authentication.DisabledException;
 import com.dialog.exception.GoogleOAuthException;
 import com.dialog.exception.GoogleOAuthException.AccessDeniedException;
 import com.dialog.exception.GoogleOAuthException.ResourceNotFoundException;
@@ -52,6 +52,17 @@ public class GlobalExceptionHandler {
          log.warn(" Access Denied: {}", e.getMessage());
          return ResponseEntity.status(HttpStatus.FORBIDDEN)
                  .body(Map.of("error", "Forbidden", "message", e.getMessage()));
+    }
+    // 비활성화시 발생되는 예외처리.
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<Map<String, String>> handleDisabledException(DisabledException e) {
+        log.warn("❌ 비활성화된 계정 접근 시도: {}", e.getMessage());
+        Map<String, String> responseBody = Map.of(
+            "status", "401",
+            "error", "Unauthorized",
+            "message", e.getMessage() // "계정이 비활성화되었습니다. 관리자에게 문의하세요."
+        );        
+        return new ResponseEntity<>(responseBody, HttpStatus.UNAUTHORIZED);
     }
     
     // 4. 잘못된 요청 (400) - 기존 로직 유지하되 더 깔끔하게
