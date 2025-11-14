@@ -30,6 +30,9 @@ public class CalendarEventResponse {
 	
 	@JsonProperty("isImportant")
 	private boolean isImportant;
+	@JsonProperty("isCompleted")
+    private boolean isCompleted;
+	
 	private String sourceId;
 	private String googleEventId;
 	private LocalDateTime createdAt;
@@ -51,6 +54,6 @@ public class CalendarEventResponse {
 		return CalendarEventResponse.builder().id(entity.getId()).userId(entity.getUserId()).title(entity.getTitle())
 				.eventDate(entity.getEventDate() != null ? entity.getEventDate().toString() : null)
 				.time(entity.getEventTime()).eventType(entity.getEventType().name()).isImportant(entity.isImportant())
-				.sourceId(sourceId).googleEventId(entity.getGoogleEventId()).createdAt(entity.getCreatedAt()).build();
+				.isCompleted(entity.isCompleted()).sourceId(sourceId).googleEventId(entity.getGoogleEventId()).createdAt(entity.getCreatedAt()).build();
 	}
 }

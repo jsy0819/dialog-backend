@@ -1,7 +1,6 @@
 package com.dialog.calendarevent.service;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,10 +15,12 @@ import com.dialog.calendarevent.domain.GoogleEventRequestDTO;
 import com.dialog.calendarevent.domain.GoogleEventResponseDTO;
 import com.dialog.calendarevent.repository.CalendarEventRepository;
 import com.dialog.exception.GoogleOAuthException;
-import com.dialog.exception.GoogleOAuthException.ResourceNotFoundException;
+import com.dialog.exception.ResourceNotFoundException;
 import com.dialog.token.service.SocialTokenService;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.repository.MeetUserRepository;
+
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -72,16 +73,13 @@ public class CalendarEventService {
 					}
 
 					gEvent.setId(localMatch.getId());
-
+					gEvent.setCompleted(localMatch.isCompleted());
 					localEventMap.remove(googleId);
 				}
 			}
 			List<CalendarEventResponse> finalEvents = new ArrayList<>(googleEvents);
 
-			List<CalendarEventResponse> onlyLocalEvents = localEvents.stream().filter(e -> e.getGoogleEventId() == null) // 구글
-																															// ID
-																															// 없는
-																															// 것만
+			List<CalendarEventResponse> onlyLocalEvents = localEvents.stream().filter(e -> e.getGoogleEventId() == null)
 					.map(CalendarEventResponse::from).collect(Collectors.toList());
 
 			finalEvents.addAll(onlyLocalEvents);
@@ -220,5 +218,31 @@ public class CalendarEventService {
 					.build();
 			calendarEventRepository.save(newLocalEvent);
 		}
+	}
+
+	@Transactional
+	public void updateCompletionStatus(String userEmail, String eventId, boolean isCompleted) {
+
+		Long dbEventId;
+		try {
+			dbEventId = Long.parseLong(eventId);
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("잘못된 이벤트 ID 형식입니다: " + eventId);
+		}
+
+		// 2. 사용자 정보를 조회합니다.
+		MeetUser user = meetUserRepository.findByEmail(userEmail)
+				.orElseThrow(() -> new ResourceNotFoundException("사용자를 찾을 수 없습니다: " + userEmail));
+
+		CalendarEvent event = calendarEventRepository.findById(dbEventId)
+				.orElseThrow(() -> new EntityNotFoundException("이벤트를 찾을 수 없습니다: " + dbEventId));
+
+		if (!event.getUserId().equals(user.getId())) {
+			throw new SecurityException("해당 이벤트에 접근할 권한이 없습니다.");
+		}
+
+		event.setIsCompleted(isCompleted);
+
+		log.info("이벤트 완료 상태 변경 (ID: {}, 완료: {})", eventId, isCompleted);
 	}
 }

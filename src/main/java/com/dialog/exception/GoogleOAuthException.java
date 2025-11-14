@@ -10,18 +10,5 @@ public class GoogleOAuthException extends RuntimeException {
     public GoogleOAuthException(String message, Throwable cause) {
         super(message, cause);
     }
-	
-	// 2. 리소스를 찾을 수 없음 예외 (404) - Optional
-	public static class ResourceNotFoundException extends RuntimeException {
-	    public ResourceNotFoundException(String message) {
-	        super(message);
-	    }
-	}
-	
-	// 3. 권한 없음 예외 (403) - Optional (기존 IllegalAccessException 대체용)
-	public static class AccessDeniedException extends RuntimeException {
-	    public AccessDeniedException(String message) {
-	        super(message);
-	    }
-	}
+
 }

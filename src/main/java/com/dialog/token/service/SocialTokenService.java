@@ -7,9 +7,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
-
+import com.dialog.exception.ResourceNotFoundException;
 import com.dialog.exception.GoogleOAuthException;
-import com.dialog.exception.GoogleOAuthException.ResourceNotFoundException; 
 import com.dialog.calendarevent.service.GoogleTokenDto;
 import com.dialog.googleauth.domain.GoogleAuthDTO;
 import com.dialog.token.domain.UserSocialToken;
