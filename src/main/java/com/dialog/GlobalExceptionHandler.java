@@ -1,20 +1,20 @@
 package com.dialog;
-
-import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.security.authentication.DisabledException;
+
+import com.dialog.exception.AccessDeniedException;
 import com.dialog.exception.GoogleOAuthException;
-import com.dialog.exception.GoogleOAuthException.AccessDeniedException;
-import com.dialog.exception.GoogleOAuthException.ResourceNotFoundException;
+
 import com.dialog.exception.InactiveUserException;
 import com.dialog.exception.InvalidJwtTokenException;
 import com.dialog.exception.InvalidPasswordException;
 import com.dialog.exception.OAuthUserNotFoundException;
 import com.dialog.exception.RefreshTokenException;
+import com.dialog.exception.ResourceNotFoundException;
 import com.dialog.exception.SocialUserInfoException;
 import com.dialog.exception.SocialUserSaveException;
 import com.dialog.exception.TermsNotAcceptedException;

@@ -21,8 +21,8 @@ public class CalendarEvent {
 	private Long id;
 
 	@Column(nullable = false)
-	private Long userId; 
-	
+	private Long userId;
+
 	@Column(nullable = false)
 	private String title;
 
@@ -30,7 +30,7 @@ public class CalendarEvent {
 	private LocalDate eventDate;
 
 	// 시간이 있는 일정일 경우 사용
-	private LocalTime eventTime; 
+	private LocalTime eventTime;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 10)
@@ -38,22 +38,24 @@ public class CalendarEvent {
 
 	// 중요 표시 (DB: TINYINT(1) / Java: boolean)
 	@Column(nullable = false)
-	private boolean isImportant; 
+	private boolean isImportant;
+	
+	@Column(nullable = false)
+    private boolean isCompleted = false;
 
 	// ------------------ 관계 필드 ------------------
 	private Long taskId;
 	private Long meetingId;
 	private String googleEventId;
 
-    // 생성/수정 시간 필드 (DB 테이블에 created_at이 있으므로 필요)
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-    
+	// 생성/수정 시간 필드 (DB 테이블에 created_at이 있으므로 필요)
+	@Column(nullable = false, updatable = false)
+	private LocalDateTime createdAt;
+
 	// ------------------ 1. Builder 패턴을 사용한 생성자 ------------------
 	@Builder
-	public CalendarEvent(Long userId, String title, LocalDate eventDate, LocalTime eventTime,
-			             EventType eventType, boolean isImportant, Long taskId, Long meetingId, 
-                         String googleEventId) {
+	public CalendarEvent(Long userId, String title, LocalDate eventDate, LocalTime eventTime, EventType eventType,
+			boolean isImportant, Long taskId, Long meetingId, String googleEventId) {
 		this.userId = userId;
 		this.title = title;
 		this.eventDate = eventDate;
@@ -63,21 +65,25 @@ public class CalendarEvent {
 		this.taskId = taskId;
 		this.meetingId = meetingId;
 		this.googleEventId = googleEventId;
-        this.createdAt = LocalDateTime.now();
+		this.createdAt = LocalDateTime.now();
 	}
-    
-    // ------------------ 3. 비즈니스 로직 기반 업데이트 메서드 ------------------
-    /**
-     * 일정 제목, 날짜, 타입 등 핵심 내용을 업데이트
-     */
-    public void updateEventDetails(String title, LocalDate eventDate, LocalTime eventTime, EventType eventType) {
-        this.title = title;
-        this.eventDate = eventDate;
-        this.eventTime = eventTime;
-        this.eventType = eventType;
-    }    
 
-    public void toggleImportance() {
-        this.isImportant = !this.isImportant;
+	// ------------------ 3. 비즈니스 로직 기반 업데이트 메서드 ------------------
+	/**
+	 * 일정 제목, 날짜, 타입 등 핵심 내용을 업데이트
+	 */
+	public void updateEventDetails(String title, LocalDate eventDate, LocalTime eventTime, EventType eventType) {
+		this.title = title;
+		this.eventDate = eventDate;
+		this.eventTime = eventTime;
+		this.eventType = eventType;
+	}
+
+	public void toggleImportance() {
+		this.isImportant = !this.isImportant;
+	}
+	
+	public void setIsCompleted(boolean completed) {
+        this.isCompleted = completed;
     }
 }

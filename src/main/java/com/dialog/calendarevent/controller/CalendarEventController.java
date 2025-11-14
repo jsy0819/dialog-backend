@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.dialog.calendarevent.domain.CalendarCreateRequest;
 import com.dialog.calendarevent.domain.CalendarEventResponse;
+import com.dialog.calendarevent.domain.EventCompletionRequest;
 import com.dialog.calendarevent.domain.GoogleEventResponseDTO;
 import com.dialog.calendarevent.service.CalendarEventService;
 import com.dialog.token.service.SocialTokenService;
@@ -37,7 +38,7 @@ import lombok.extern.log4j.Log4j2;
 public class CalendarEventController {
 
 	private final CalendarEventService calendarEventService;
-	private final SocialTokenService tokenManagerService;
+	private final SocialTokenService tokenManagerService;	
 
 	@GetMapping("/calendar/events")
 	public ResponseEntity<List<CalendarEventResponse>> getEvents(Principal principal, // ResponseEntity<?> ->
@@ -130,4 +131,21 @@ public class CalendarEventController {
 
         return ResponseEntity.ok().build();
     }
+	@PatchMapping("/calendar/events/{eventId}/completion")
+    public ResponseEntity<Void> updateEventCompletion(
+            @PathVariable("eventId") String eventId,
+            @RequestBody EventCompletionRequest request,
+            Principal principal) {
+
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        String userEmail = principal.getName();        
+
+        calendarEventService.updateCompletionStatus(userEmail, eventId, request.isCompleted());
+
+        return ResponseEntity.ok().build();
+    }
+	
 }

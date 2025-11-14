@@ -78,8 +78,7 @@ public class MeetuserService {
     }
     
 //      로그인 검증
-//      이메일 DB조회 -> 비밀번호 비교 (암호화 검증) -> 오류시 예외 반환, 성공시 유저 엔티티 반환
-     
+//      이메일 DB조회 -> 비밀번호 비교 (암호화 검증) -> 오류시 예외 반환, 성공시 유저 엔티티 반환     
     public MeetUser login(String email, String rawPassword) {
         MeetUser user = meetUserRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException("존재하지 않는 사용자 입니다."));
