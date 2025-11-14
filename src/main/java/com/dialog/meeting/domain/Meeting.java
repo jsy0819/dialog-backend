@@ -10,6 +10,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import com.dialog.keyword.domain.Keyword;
 import com.dialog.participant.domain.Participant;
 import com.dialog.recording.domain.Recording;
+import com.dialog.transcript.domain.Transcript;
 import com.dialog.user.domain.MeetUser;
 
 import jakarta.persistence.CascadeType;
@@ -85,9 +86,14 @@ public class Meeting {
 	@OneToMany(mappedBy = "meeting", fetch = FetchType.LAZY)
 	private List<Participant> participants;
 	
-	// Meeting.java에 추가
-	@OneToOne(mappedBy = "meeting", cascade = CascadeType.ALL, orphanRemoval = true)
-	private Recording recording;
+	// 1:1 Recording 설정
+    @OneToOne(mappedBy = "meeting", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private Recording recording;
+
+	// 1:N Transcript 설정
+    @OneToMany(mappedBy = "meeting", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<Transcript> transcripts = new ArrayList<>();
+
 	
 	// 키워드 연관관계 (다대다)
 	@Builder.Default
