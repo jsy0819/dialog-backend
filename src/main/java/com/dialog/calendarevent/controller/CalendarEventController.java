@@ -62,8 +62,7 @@ public class CalendarEventController {
 		if (principal == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
-		if (request == null || request.getEventData() == null) {
-			// 400 Bad Request를 유발 (GlobalExceptionHandler가 처리)
+		if (request == null || request.getEventData() == null) {		
 			throw new IllegalArgumentException("이벤트 데이터가 비어있습니다.");
 		}
 

@@ -1,6 +1,7 @@
 package com.dialog.calendarevent.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,9 @@ import com.dialog.calendarevent.domain.GoogleEventResponseDTO;
 import com.dialog.calendarevent.repository.CalendarEventRepository;
 import com.dialog.exception.GoogleOAuthException;
 import com.dialog.exception.ResourceNotFoundException;
+import com.dialog.meeting.domain.Meeting;
+import com.dialog.meeting.domain.Status;
+import com.dialog.meeting.repository.MeetingRepository;
 import com.dialog.token.service.SocialTokenService;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.repository.MeetUserRepository;
@@ -34,71 +38,103 @@ public class CalendarEventService {
 	private final SocialTokenService tokenManagerService;
 	private final GoogleCalendarApiClient googleCalendarApiClient;
 	private final MeetUserRepository meetUserRepository;
+	private final MeetingRepository meetingRepository;
 
-	public List<CalendarEventResponse> getEventsByDateRange(String userEmail, LocalDate startDate, LocalDate endDate) {
+	    public List<CalendarEventResponse> getEventsByDateRange(String userEmail, LocalDate startDate, LocalDate endDate) {
 
-		MeetUser meetUser = meetUserRepository.findByEmail(userEmail)
-				.orElseThrow(() -> new ResourceNotFoundException("MeetUser를 찾을 수 없습니다: " + userEmail));
+	        MeetUser meetUser = meetUserRepository.findByEmail(userEmail)
+	                .orElseThrow(() -> new ResourceNotFoundException("MeetUser를 찾을 수 없습니다: " + userEmail));
 
-		Long userId = meetUser.getId();
-		String accessToken = tokenManagerService.getToken(userEmail, "google");
+	        Long userId = meetUser.getId();
+	        String accessToken = tokenManagerService.getToken(userEmail, "google");
 
-		// 1. 로컬 DB 이벤트 조회
-		List<CalendarEvent> localEvents = calendarEventRepository.findByUserIdAndEventDateBetween(userId, startDate,
-				endDate);
+	        // --- 1. (기존) 로컬 DB 'Task' 이벤트 조회 (CalendarEvent) ---
+	        List<CalendarEvent> localEvents = calendarEventRepository.findByUserIdAndEventDateBetween(userId, startDate, endDate);
+	        
+	        // (기존) 구글 이벤트와 동기화할 맵 생성
+	        Map<String, CalendarEvent> localEventMap = localEvents.stream()
+	                .filter(e -> e.getGoogleEventId() != null)
+	                .collect(Collectors.toMap(CalendarEvent::getGoogleEventId, e -> e, (p1, p2) -> p1));
+	        
+	        // (기존) 순수 DB Task 이벤트 (구글 ID가 없는 것) 미리 분리
+	        List<CalendarEventResponse> onlyLocalTasks = localEvents.stream()
+	                .filter(e -> e.getGoogleEventId() == null) // ⭐️ 구글 ID가 없는 Task
+	                .map(CalendarEventResponse::from)
+	                .collect(Collectors.toList());
 
-		Map<String, CalendarEvent> localEventMap = localEvents.stream().filter(e -> e.getGoogleEventId() != null)
-				.collect(Collectors.toMap(CalendarEvent::getGoogleEventId, e -> e, (p1, p2) -> p1));
+	        LocalDateTime startDateTime = startDate.atStartOfDay(); // (예: 11월 1일 00:00:00)
+	        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay(); // (예: 12월 1일 00:00:00) 
+	        
+	        List<Meeting> dbMeetings = meetingRepository.findAllByScheduledAtBetween(
+	                startDateTime,
+	                endDateTime
+	        );
 
-		if (accessToken == null || accessToken.isEmpty()) {
-			return localEvents.stream().map(CalendarEventResponse::from).collect(Collectors.toList());
-		}
+	        List<CalendarEventResponse> meetingEvents = dbMeetings.stream().map(meeting -> {
+	            
+	            boolean isImportant = meeting.getKeywords().stream()
+	                                         .anyMatch(k -> "중요".equals(k.getName()));
+	            
+	            boolean isCompleted = (meeting.getStatus() == Status.COMPLETED); 
 
-		try {
-			List<CalendarEventResponse> googleEvents = googleCalendarApiClient.getEvents(accessToken, "primary",
-					startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay());
+	            return CalendarEventResponse.builder()
+	                    .id(meeting.getId()) // ⭐️ DTO의 'id' 필드 (Long)
+	                    .userId(meeting.getHostUser().getId()) // ⭐️ 호스트 ID
+	                    .title(meeting.getTitle())
+	                    .eventDate(meeting.getScheduledAt().toLocalDate().toString()) // 날짜 (YYYY-MM-DD)
+	                    .time(meeting.getScheduledAt().toLocalTime()) // 시간
+	                    .eventType("MEETING")
+	                    .isImportant(isImportant)
+	                    .isCompleted(isCompleted)
+	                    .sourceId("db-meeting-" + meeting.getId()) // ⭐️ DTO의 'sourceId' 필드
+	                    .googleEventId(null) // DB 미팅이므로 구글 ID는 null
+	                    .createdAt(meeting.getCreatedAt())
+	                    .build();
+	            }).collect(Collectors.toList());
+	        
+	        if (accessToken == null || accessToken.isEmpty()) {
+	            log.warn("Google AccessToken이 없어 로컬 데이터만 반환합니다.");
+	            List<CalendarEventResponse> allLocalData = new ArrayList<>();
+	            allLocalData.addAll(onlyLocalTasks);
+	            allLocalData.addAll(meetingEvents);
+	            return allLocalData;
+	        }
 
-			for (CalendarEventResponse gEvent : googleEvents) {
-				String googleId = gEvent.getGoogleEventId();
+	        try {	           
+	            List<CalendarEventResponse> googleEvents = googleCalendarApiClient.getEvents(accessToken, "primary",
+	                    startDateTime, endDateTime);
 
-				// 로컬 DB에 동일한 구글 ID를 가진 데이터가 있는지 확인
-				if (googleId != null && localEventMap.containsKey(googleId)) {
-					CalendarEvent localMatch = localEventMap.get(googleId);
+	            for (CalendarEventResponse gEvent : googleEvents) {
+	                String googleId = gEvent.getGoogleEventId();
+	                if (googleId != null && localEventMap.containsKey(googleId)) {
+	                    CalendarEvent localMatch = localEventMap.get(googleId);
+	                    gEvent.setImportant(localMatch.isImportant());
+	                    if (localMatch.getEventType() != null) {
+	                        gEvent.setEventType(localMatch.getEventType().name());
+	                    }
+	                    gEvent.setId(localMatch.getId());
+	                    gEvent.setCompleted(localMatch.isCompleted());
+	                }
+	            }
+	            
+	            List<CalendarEventResponse> finalEvents = new ArrayList<>();
+	            finalEvents.addAll(googleEvents);  
+	            finalEvents.addAll(onlyLocalTasks);
+	            finalEvents.addAll(meetingEvents); 
 
-					// 중요도 덮어쓰기 (별표 유지)
-					gEvent.setImportant(localMatch.isImportant());
+	            return finalEvents;
 
-					if (localMatch.getEventType() != null) {
-						gEvent.setEventType(localMatch.getEventType().name());
-					}
+	        } catch (Exception e) {
+	            String errorMessage = (e.getMessage() != null) ? e.getMessage() : "";
 
-					gEvent.setId(localMatch.getId());
-					gEvent.setCompleted(localMatch.isCompleted());
-					localEventMap.remove(googleId);
-				}
-			}
-			List<CalendarEventResponse> finalEvents = new ArrayList<>(googleEvents);
-
-			List<CalendarEventResponse> onlyLocalEvents = localEvents.stream().filter(e -> e.getGoogleEventId() == null)
-					.map(CalendarEventResponse::from).collect(Collectors.toList());
-
-			finalEvents.addAll(onlyLocalEvents);
-
-			return finalEvents;
-
-		} catch (Exception e) {
-			String errorMessage = (e.getMessage() != null) ? e.getMessage() : "";
-
-			if (errorMessage.contains("invalid_grant") || errorMessage.contains("토큰 갱신 실패")
-					|| errorMessage.contains("401")) {
-				throw new GoogleOAuthException("Google 토큰이 만료되었거나 무효화되었습니다. 재연동이 필요합니다.");
-			}
-
-			// 8. 그 외 모든 구글 API 관련 오류
-			log.error("Google Calendar API 조회 중 심각한 오류 발생", e);
-			throw new RuntimeException("Google Calendar API 조회 중 오류가 발생했습니다.", e);
-		}
-	}
+	            if (errorMessage.contains("invalid_grant") || errorMessage.contains("토큰 갱신 실패")
+	                    || errorMessage.contains("401")) {
+	                throw new GoogleOAuthException("Google 토큰이 만료되었거나 무효화되었습니다. 재연동이 필요합니다.");
+	            }
+	            log.error("Google Calendar API 조회 중 심각한 오류 발생", e);
+	            throw new RuntimeException("Google Calendar API 조회 중 오류가 발생했습니다.", e);
+	        }
+	    }
 
 	@Transactional // DB 쓰기를 위해 (readOnly = true) 덮어쓰기
 	public GoogleEventResponseDTO createCalendarEvent(String principalName, String provider, String calendarId,
