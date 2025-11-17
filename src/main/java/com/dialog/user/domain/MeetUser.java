@@ -101,6 +101,14 @@ public class MeetUser {
     // 유저 권한 추가
     @Enumerated(EnumType.STRING)
     private Role role;
+    
+    // 비밀번호 재설정 추가
+    @Column(name = "reset_password_token", length = 255)
+    private String resetPasswordToken;
+
+    // 토큰 검사 추가
+    @Column(name = "reset_token_expires_at")
+    private LocalDateTime resetTokenExpiresAt;
 
 
     //  JPA를 위한 기본 생성자.
@@ -155,5 +163,20 @@ public class MeetUser {
       this.job = job;
       this.position = position;
    }
+   
+   
+   public void setResetPasswordToken(String token, LocalDateTime expiresAt) {
+	    this.resetPasswordToken = token;
+	    this.resetTokenExpiresAt = expiresAt;
+	}
+
+	public void clearResetPasswordToken() {
+	    this.resetPasswordToken = null;
+	    this.resetTokenExpiresAt = null;
+	}
+
+	public boolean isResetTokenValid() {
+	    return resetPasswordToken != null && resetTokenExpiresAt != null && resetTokenExpiresAt.isAfter(LocalDateTime.now());
+	}
 
 }

@@ -33,5 +33,7 @@ public interface MeetUserRepository extends JpaRepository<MeetUser, Long> {
     // 어제 가입자 수 - 범위 검색
     @Query(value = "SELECT COUNT(*) FROM user WHERE created_at BETWEEN :start AND :end", nativeQuery = true)
     long countYesterdayRegisteredUsers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+	Optional<MeetUser> findByResetPasswordToken(String resetPasswordToken);
     
 }
