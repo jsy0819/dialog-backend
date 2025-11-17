@@ -29,9 +29,12 @@ import com.dialog.security.oauth2.SocialUserInfo;
 import com.dialog.security.oauth2.SocialUserInfoFactory;
 import com.dialog.token.domain.RefreshTokenDto;
 import com.dialog.token.service.RefreshTokenServiceImpl;
+import com.dialog.user.domain.ForgotPasswordRequestDTO;
 import com.dialog.user.domain.LoginDto;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.domain.MeetUserDto;
+import com.dialog.user.domain.ResetPasswordRequestDTO;
+import com.dialog.user.domain.UserApiResponseDTO;
 import com.dialog.user.domain.UserSettingsUpdateDto;
 import com.dialog.user.service.MeetuserService;
 
@@ -134,5 +137,19 @@ public class MeetUserController {
 
         // 성공 메시지를 포함한 HTTP 200 OK 응답 반환
         return ResponseEntity.ok(Map.of("success", true, "message", "개인정보가 성공적으로 저장되었습니다."));
+    }
+    
+    // 비밀번호 재설정 메일 발송 요청
+    @PostMapping("/api/auth/forgotPassword")
+    public ResponseEntity<UserApiResponseDTO> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDTO request) {
+        meetuserService.sendResetPasswordEmail(request.getEmail());
+        return ResponseEntity.ok(new UserApiResponseDTO(true, "비밀번호 재설정 이메일이 발송되었습니다."));
+    }
+
+    // 비밀번호 재설정 (토큰검증 + 비밀번호 변경)
+    @PostMapping("/api/auth/resetPassword")
+    public ResponseEntity<UserApiResponseDTO> resetPassword(@Valid @RequestBody ResetPasswordRequestDTO request) {
+        meetuserService.resetPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(new UserApiResponseDTO(true, "비밀번호가 성공적으로 변경되었습니다."));
     }
 }

@@ -320,3 +320,4 @@ src/main/java/com/dialog/googleauth/
 !src/main/java/com/dialog/googleauth/
 src/main/java/com/dialog/exception/
 !src/main/java/com/dialog/exception/
+!src/main/java/com/dialog/email/service/

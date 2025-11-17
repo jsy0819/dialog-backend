@@ -1,13 +1,19 @@
 package com.dialog.user.service;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dialog.email.service.EmailService;
 import com.dialog.exception.InactiveUserException;
 import com.dialog.exception.InvalidPasswordException;
 import com.dialog.exception.OAuthUserNotFoundException;
@@ -31,7 +37,10 @@ public class MeetuserService {
 
     private final MeetUserRepository meetUserRepository; 
     private final PasswordEncoder passwordEncoder;       
+    private final EmailService emailService;
 
+    @Value("${app.reset-password.url}")
+    private String resetPasswordUrl;
     
 //      회원가입 처리 메서드
 //      가입정보 DTO (이메일, 비번 등)
@@ -129,6 +138,44 @@ public class MeetuserService {
             throw new UserRoleAccessDeniedException("알 수 없는 인증 방식입니다.");
         }
         return user;
+    }
+    
+    // 비밀번호 초기화 이메일 발송 메서드
+    public void sendResetPasswordEmail(String email) {
+        MeetUser user = meetUserRepository.findByEmail(email)
+            .orElseThrow(() -> new UsernameNotFoundException("해당 이메일 정보가 없습니다."));
+
+        String token = UUID.randomUUID().toString();
+        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+
+        user.setResetPasswordToken(token, expiresAt);
+        meetUserRepository.save(user);
+
+        String resetUrl = resetPasswordUrl + "?token=" + token;
+
+        emailService.sendPasswordResetEmail(user.getEmail(), resetUrl);
+    }
+
+
+
+    // 비밀번호 초기화 메서드
+    public void resetPassword(String token, String newPassword) {
+        MeetUser user = meetUserRepository.findByResetPasswordToken(token)
+            .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 토큰입니다."));
+
+        // 토큰 만료 확인
+        if (!user.isResetTokenValid()) {
+            throw new IllegalArgumentException("토큰이 만료되었습니다.");
+        }
+
+        // 비밀번호 암호화 및 저장 
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        user.setPassword(encodedPassword);
+
+        // 토큰 무효화
+        user.clearResetPasswordToken();
+
+        meetUserRepository.save(user);
     }
     
 }
