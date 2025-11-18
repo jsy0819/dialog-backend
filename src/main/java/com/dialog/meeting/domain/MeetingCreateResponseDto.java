@@ -19,6 +19,9 @@ public class MeetingCreateResponseDto {
     private List<String> participants; // 참가자 이름 리스트
     private List<String> keywords;     // 키워드 리스트
 
+    // 작성자 이름 관련 변수 추가
+    private String authorName;
+
     // Entity 객체를 DTO로 변환하는 생성자
     public MeetingCreateResponseDto(Meeting meeting, List<String> participants, List<String> keywords) {
         this.meetingId = meeting.getId();
@@ -27,5 +30,12 @@ public class MeetingCreateResponseDto {
         this.scheduledAt = meeting.getScheduledAt();
         this.participants = participants;
         this.keywords = keywords;
+        
+        // 작성자 이름 관련 조건 추가
+        if (meeting.getHostUser() != null) {
+            this.authorName = meeting.getHostUser().getName(); 
+        } else {
+            this.authorName = null;
+        }
     }
 }

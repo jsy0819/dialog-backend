@@ -143,7 +143,7 @@ public class MeetuserService {
     // 비밀번호 초기화 이메일 발송 메서드
     public void sendResetPasswordEmail(String email) {
         MeetUser user = meetUserRepository.findByEmail(email)
-            .orElseThrow(() -> new UsernameNotFoundException("해당 이메일 정보가 없습니다."));
+            .orElseThrow(() -> new UserNotFoundException("존재하지 않는 이메일 입니다."));
 
         String token = UUID.randomUUID().toString();
         LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
@@ -155,8 +155,6 @@ public class MeetuserService {
 
         emailService.sendPasswordResetEmail(user.getEmail(), resetUrl);
     }
-
-
 
     // 비밀번호 초기화 메서드
     public void resetPassword(String token, String newPassword) {
