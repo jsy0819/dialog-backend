@@ -49,3 +49,14 @@ logging:
   level:
     com.dialog.security.jwt: DEBUG
     com.dialog.security.oauth2: DEBUG
+
+# Python FastAPI 연결 설정
+fastapi:
+  base-url: http://localhost:8000
+
+# OAuth2 리다이렉트 URI 설정
+app:
+  oauth2:
+    fail-uri: http://localhost:8080/login?error=true
+    success-uri: http://localhost:8080/dashboard
+    redirect-uri: http://localhost:8080/oauth2/redirect

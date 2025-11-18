@@ -7,7 +7,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
-
+import org.springframework.web.client.RestTemplate;  // HTTP 통신용 클라이언트
 
 @Configuration
 public class AppConfig {
@@ -28,6 +28,13 @@ public class AppConfig {
 	            })
 	    );
 	    return resolver;
+	}
+	
+	// HTTP 통신용 클라이언트
+	// Python FastAPI(포트 8000)와 통신하여 챗봇 요청 중계
+	@Bean
+	public RestTemplate restTemplate() {
+	    return new RestTemplate();
 	}
 	
 }
