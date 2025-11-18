@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 
+import com.dialog.exception.ResourceNotFoundException;
 import com.dialog.exception.UserNotFoundException;
 import com.dialog.meeting.repository.MeetingRepository;
 import com.dialog.participant.repository.ParticipantRepository;
@@ -127,4 +128,14 @@ public class AdminService {
 
         return new TodayStatsDto(todayMeetCount, meetChange, todayUserCount, userChange);
     }
+   
+    @Transactional
+	public void deleteMeeting(Long meetingId) {
+    	if (!meetingRepository.existsById(meetingId)) {
+	        throw new ResourceNotFoundException("해당 회의가 존재하지 않습니다. id=" + meetingId);
+	    }
+	  
+    	participantRepository.deleteByMeetingId(meetingId); 
+    	meetingRepository.deleteById(meetingId);
+	}
 }

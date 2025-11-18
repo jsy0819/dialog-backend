@@ -83,6 +83,10 @@ public class Meeting {
 	@Column(name = "updated_at", nullable = false)
 	private LocalDateTime updatedAt; // 레코드 마지막 수정 일시
 
+	@Column(name = "is_important", nullable = false)
+    @Builder.Default
+    private boolean isImportant = false; // 회의 중요도
+	
 	@OneToMany(mappedBy = "meeting", fetch = FetchType.LAZY)
 	private List<Participant> participants;
 	
@@ -93,7 +97,6 @@ public class Meeting {
 	// 1:N Transcript 설정
     @OneToMany(mappedBy = "meeting", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Transcript> transcripts = new ArrayList<>();
-
 	
 	// 키워드 연관관계 (다대다)
 	@Builder.Default
@@ -126,4 +129,8 @@ public class Meeting {
 	public void updateSummary(String newSummary) {
 		this.summary = newSummary;
 	}
+
+    public void toggleImportance() {
+        this.isImportant = !this.isImportant;
+    }
 }

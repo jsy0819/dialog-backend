@@ -10,5 +10,6 @@ import java.util.List;
 public interface ParticipantRepository extends JpaRepository<Participant, Long> {
     List<Participant> findByMeetingId(Long meetingId);
 
-    void deleteBySpeakerId(String speakerId);
+    void deleteBySpeakerId(String speakerId);    
+    void deleteByMeetingId(Long meetingId);
 }

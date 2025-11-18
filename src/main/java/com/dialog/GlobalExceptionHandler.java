@@ -56,7 +56,7 @@ public class GlobalExceptionHandler {
     // 비활성화시 발생되는 예외처리.
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<Map<String, String>> handleDisabledException(DisabledException e) {
-        log.warn("❌ 비활성화된 계정 접근 시도: {}", e.getMessage());
+        log.warn("비활성화된 계정 접근 시도: {}", e.getMessage());
         Map<String, String> responseBody = Map.of(
             "status", "401",
             "error", "Unauthorized",

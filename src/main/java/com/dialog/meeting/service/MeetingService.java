@@ -37,7 +37,7 @@ public class MeetingService {
 	private final ParticipantRepository participantRepository;
 	private final KeywordRepository keywordRepository;
 	private final RecordingRepository recordingRepository;
-	private final TranscriptRepository 	transcriptRepository;
+	private final TranscriptRepository transcriptRepository;
 
 	// 회의 생성
 	@Transactional
@@ -70,8 +70,6 @@ public class MeetingService {
 		}
 		participantRepository.saveAll(participantEntities);
 
-		// 5. 키워드 등록 및 ManyToMany 연관관계 설정
-		// 기존 키워드 재사용(중복사용방지) , 없으면 새로 생성하여 저장
 		List<Keyword> keywordEntities = new ArrayList<>();
 		if (requestDto.getKeywords() != null) {
 			for (String keywordName : requestDto.getKeywords()) {
@@ -139,62 +137,52 @@ public class MeetingService {
 	}
 
 	// MeetingService.java의 finishMeeting 메서드만 수정
-
 	// 🆕 회의 종료 + Transcript 저장
 	@Transactional
 	public void finishMeeting(Long meetingId, MeetingFinishRequestDto requestDto) {
 
-	    // 1. 회의 조회
-	    Meeting meeting = meetingRepository.findById(meetingId)
-	            .orElseThrow(() -> new IllegalArgumentException("회의를 찾을 수 없습니다. ID: " + meetingId));
+		// 1. 회의 조회
+		Meeting meeting = meetingRepository.findById(meetingId)
+				.orElseThrow(() -> new IllegalArgumentException("회의를 찾을 수 없습니다. ID: " + meetingId));
 
-	    // 2. 회의 상태를 COMPLETED로 변경
-	    meeting.complete();
+		// 2. 회의 상태를 COMPLETED로 변경
+		meeting.complete();
 
-	    // 3. Recording 정보가 있으면 저장
-	    if (requestDto.getRecording() != null) {
-	        MeetingFinishRequestDto.RecordingData recordingData = requestDto.getRecording();
+		// 3. Recording 정보가 있으면 저장
+		if (requestDto.getRecording() != null) {
+			MeetingFinishRequestDto.RecordingData recordingData = requestDto.getRecording();
 
-	        if (!recordingRepository.existsByMeetingId(meetingId)) {
-	            Recording recording = Recording.builder()
-	                    .meeting(meeting)
-	                    .audioFileUrl(recordingData.getAudioFileUrl())
-	                    .audioFileSize(recordingData.getAudioFileSize())
-	                    .audioFormat(recordingData.getAudioFormat())
-	                    .durationSeconds(recordingData.getDurationSeconds())
-	                    .build();
+			if (!recordingRepository.existsByMeetingId(meetingId)) {
+				Recording recording = Recording.builder().meeting(meeting).audioFileUrl(recordingData.getAudioFileUrl())
+						.audioFileSize(recordingData.getAudioFileSize()).audioFormat(recordingData.getAudioFormat())
+						.durationSeconds(recordingData.getDurationSeconds()).build();
 
-	            recordingRepository.save(recording);
-	        }
-	    }
+				recordingRepository.save(recording);
+			}
+		}
 
-	    // 🆕 4. Transcript 정보가 있으면 저장 (✅ 활성화됨)
-	    if (requestDto.getTranscripts() != null && !requestDto.getTranscripts().isEmpty()) {
+		// 🆕 4. Transcript 정보가 있으면 저장 (✅ 활성화됨)
+		if (requestDto.getTranscripts() != null && !requestDto.getTranscripts().isEmpty()) {
 
-	        // 기존 Transcript가 있다면 삭제 (중복 방지)
-	        if (transcriptRepository.existsByMeetingId(meetingId)) {
-	            transcriptRepository.deleteByMeetingId(meetingId);
-	        }
+			// 기존 Transcript가 있다면 삭제 (중복 방지)
+			if (transcriptRepository.existsByMeetingId(meetingId)) {
+				transcriptRepository.deleteByMeetingId(meetingId);
+			}
 
-	        // Transcript 엔티티 생성 및 저장
-	        List<Transcript> transcripts = requestDto.getTranscripts().stream()
-	                .map(transcriptData -> Transcript.builder()
-	                        .meeting(meeting)
-	                        .speakerId(transcriptData.getSpeakerId())
-	                        .speakerName(transcriptData.getSpeakerName())
-	                        .speakerLabel(transcriptData.getSpeakerLabel())
-	                        .text(transcriptData.getText())
-	                        .startTime(transcriptData.getStartTime())
-	                        .endTime(transcriptData.getEndTime())
-	                        .sequenceOrder(transcriptData.getSequenceOrder())
-	                        .isDeleted(false)  // 기본값 추가
-	                        .build())
-	                .collect(Collectors.toList());
+			// Transcript 엔티티 생성 및 저장
+			List<Transcript> transcripts = requestDto.getTranscripts().stream()
+					.map(transcriptData -> Transcript.builder().meeting(meeting)
+							.speakerId(transcriptData.getSpeakerId()).speakerName(transcriptData.getSpeakerName())
+							.speakerLabel(transcriptData.getSpeakerLabel()).text(transcriptData.getText())
+							.startTime(transcriptData.getStartTime()).endTime(transcriptData.getEndTime())
+							.sequenceOrder(transcriptData.getSequenceOrder()).isDeleted(false) // 기본값 추가
+							.build())
+					.collect(Collectors.toList());
 
-	        transcriptRepository.saveAll(transcripts);
-	    } 
+			transcriptRepository.saveAll(transcripts);
+		}
 
-	    // 5. 회의 엔티티 저장 (상태 변경 반영)
-	    meetingRepository.save(meeting);
+		// 5. 회의 엔티티 저장 (상태 변경 반영)
+		meetingRepository.save(meeting);
 	}
 }
