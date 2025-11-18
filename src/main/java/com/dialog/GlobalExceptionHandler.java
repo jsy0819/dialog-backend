@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.security.authentication.DisabledException;
 
 import com.dialog.exception.AccessDeniedException;
+import com.dialog.exception.ChatbotApiException;
 import com.dialog.exception.GoogleOAuthException;
 
 import com.dialog.exception.InactiveUserException;
@@ -145,5 +146,12 @@ public class GlobalExceptionHandler {
         log.warn("Terms Not Accepted: {}", e.getMessage());
         return ResponseEntity.badRequest()
                 .body(Map.of("error", "약관 미동의", "message", e.getMessage()));
+    }
+    
+    @ExceptionHandler(ChatbotApiException.class)
+    public ResponseEntity<Map<String, String>> handleChatbotApiException(ChatbotApiException e) {
+        log.error("챗봇 API 호출 실패: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Chatbot API Error","message", e.getMessage()));
     }
 }
