@@ -9,6 +9,9 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dialog.calendarevent.domain.CalendarEvent;
+import com.dialog.calendarevent.domain.EventType;
+import com.dialog.calendarevent.repository.CalendarEventRepository;
 import com.dialog.keyword.domain.Keyword;
 import com.dialog.keyword.repository.KeywordRepository;
 import com.dialog.meeting.domain.Meeting;
@@ -38,7 +41,7 @@ public class MeetingService {
 	private final KeywordRepository keywordRepository;
 	private final RecordingRepository recordingRepository;
 	private final TranscriptRepository transcriptRepository;
-
+	private final CalendarEventRepository calendarEventRepository;
 	// 회의 생성
 	@Transactional
 	public MeetingCreateResponseDto createMeeting(MeetingCreateRequestDto requestDto, Long hostUserId)
@@ -83,6 +86,18 @@ public class MeetingService {
 			meetingRepository.save(savedMeeting);
 		}
 
+		CalendarEvent calendarEvent = CalendarEvent.builder()
+                .userId(hostUser.getId())
+                .title(savedMeeting.getTitle())       
+                .eventDate(savedMeeting.getScheduledAt().toLocalDate())
+                .eventTime(savedMeeting.getScheduledAt().toLocalTime()) 
+                .eventType(EventType.MEETING)
+                .isImportant(savedMeeting.isImportant()) // 중요도 동기화
+                .meeting(savedMeeting)                   
+                .build();
+
+        calendarEventRepository.save(calendarEvent);
+        
 		// 6. 응답 반환 세팅 (이름/키워드 스트링값만 추출)
 		List<String> participantIds = new ArrayList<>();
 		for (Participant participant : participantEntities) {

@@ -43,10 +43,10 @@ public class CalendarEventResponse {
 		}
 
 		String sourceId = null;
-		if (entity.getEventType() == EventType.TASK && entity.getTaskId() != null) {
-			sourceId = entity.getTaskId().toString();
-		} else if (entity.getEventType() == EventType.MEETING && entity.getMeetingId() != null) {
-			sourceId = entity.getMeetingId().toString();
+		if (entity.getEventType() == EventType.TASK && entity.getTask() != null) {
+			sourceId = entity.getTask().toString();
+		} else if (entity.getEventType() == EventType.MEETING && entity.getMeeting() != null) {
+			sourceId = entity.getMeeting().toString();
 		} else if (entity.getGoogleEventId() != null) {
 			sourceId = entity.getGoogleEventId();
 		}
