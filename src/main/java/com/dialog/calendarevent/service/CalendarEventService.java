@@ -2,6 +2,9 @@ package com.dialog.calendarevent.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +17,9 @@ import com.dialog.calendarevent.domain.CalendarEventResponse;
 import com.dialog.calendarevent.domain.EventType;
 import com.dialog.calendarevent.domain.GoogleEventRequestDTO;
 import com.dialog.calendarevent.domain.GoogleEventResponseDTO;
+import com.dialog.calendarevent.domain.Todo;
 import com.dialog.calendarevent.repository.CalendarEventRepository;
+import com.dialog.calendarevent.repository.TodoRepository;
 import com.dialog.exception.GoogleOAuthException;
 import com.dialog.exception.ResourceNotFoundException;
 import com.dialog.keyword.domain.Keyword;
@@ -41,7 +46,7 @@ public class CalendarEventService {
 	private final GoogleCalendarApiClient googleCalendarApiClient;
 	private final MeetUserRepository meetUserRepository;
 	private final MeetingRepository meetingRepository;
-	//private final KeywordRepository keywordRepository;
+	private final TodoRepository todoRepository;
 
 	public List<CalendarEventResponse> getEventsByDateRange(String userEmail, LocalDate startDate, LocalDate endDate) {
 
@@ -59,8 +64,7 @@ public class CalendarEventService {
 				.collect(Collectors.toMap(CalendarEvent::getGoogleEventId, e -> e, (p1, p2) -> p1));
 
 		List<CalendarEventResponse> onlyLocalTasks = localEvents.stream().filter(e -> e.getGoogleEventId() == null)
-				.map(CalendarEventResponse::from)
-				.collect(Collectors.toList());
+				.map(CalendarEventResponse::from).collect(Collectors.toList());
 
 		LocalDateTime startDateTime = startDate.atStartOfDay();
 		LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
@@ -127,7 +131,6 @@ public class CalendarEventService {
 	public GoogleEventResponseDTO createCalendarEvent(String principalName, String provider, String calendarId,
 			String accessToken, GoogleEventRequestDTO eventData) {
 
-		// 1. Google Calendar API를 호출하여 일정 생성 요청
 		GoogleEventResponseDTO responseFromGoogle = googleCalendarApiClient.createEvent(accessToken, calendarId,
 				eventData);
 
@@ -135,18 +138,59 @@ public class CalendarEventService {
 			MeetUser user = meetUserRepository.findByEmail(principalName)
 					.orElseThrow(() -> new IllegalArgumentException("DB 저장 실패: 사용자를 찾을 수 없습니다: " + principalName));
 
-			// 3. 엔티티의 @Builder를 사용하여 객체 생성
-			CalendarEvent newLocalEvent = CalendarEvent.builder().userId(user.getId()).title(eventData.getSummary()) // 프론트에서
-																														// 받은
-																														// 제목
-					.eventDate(LocalDate.parse(eventData.getStart().getDate())) // DTO의 date(String)를 LocalDate로 변환
-					.googleEventId(responseFromGoogle.getId()).eventType(EventType.TASK).isImportant(false).build();
+			LocalDate eventDate;
+			LocalTime eventTime = null;
+			EventType type = EventType.TASK; // 기본값 TASK
 
-			// 4. 로컬 DB에 최종 저장
+			// 제목 처리 (null 방지)
+			String title = eventData.getSummary();
+			if (title == null || title.trim().isEmpty()) {
+				title = "(제목 없음)";
+			}
+
+			if (eventData.getStart().getDate() != null) {
+				// Case A: 종일 일정 (TASK)
+				eventDate = LocalDate.parse(eventData.getStart().getDate());
+				type = EventType.TASK;
+			} else if (eventData.getStart().getDateTime() != null) {
+				// Case B: 시간 일정 (MEETING)
+				String dateTimeStr = eventData.getStart().getDateTime();
+				ZonedDateTime zdt;
+				try {
+					zdt = ZonedDateTime.parse(dateTimeStr, DateTimeFormatter.ISO_DATE_TIME);
+				} catch (Exception e) {
+					LocalDateTime ldt = LocalDateTime.parse(dateTimeStr);
+					zdt = ldt.atZone(java.time.ZoneId.systemDefault());
+				}
+				eventDate = zdt.toLocalDate();
+				eventTime = zdt.toLocalTime();
+				type = EventType.MEETING;
+			} else {
+				eventDate = LocalDate.now();
+			}
+
+			Todo savedTodo = null;
+			if (type == EventType.TASK) {
+				Todo newTodo = Todo.builder().title(title).description(eventData.getDescription()) // 구글 설명 -> Todo 설명
+						.dueDate(eventDate) // 날짜 -> 마감일
+						.user(user).build();
+
+				savedTodo = todoRepository.save(newTodo); // ★ Todo 저장
+				log.info("연관 Todo 생성 완료: ID={}", savedTodo.getId());
+			}
+
+			// CalendarEvent 생성 (Todo 객체 연결)
+			CalendarEvent newLocalEvent = CalendarEvent.builder().userId(user.getId()).title(title).eventDate(eventDate)
+					.eventTime(eventTime).googleEventId(responseFromGoogle.getId()).eventType(type).isImportant(false)
+					.task(savedTodo)
+					.build();
+
 			calendarEventRepository.save(newLocalEvent);
+			log.info("로컬 DB(CalendarEvent) 저장 성공 (Google ID: {})", responseFromGoogle.getId());
 
 		} catch (Exception e) {
-			throw new RuntimeException("로컬 DB 저장 중 오류 발생", e);
+			e.printStackTrace();
+			throw new RuntimeException("로컬 DB 저장 실패", e);
 		}
 		return responseFromGoogle;
 	}
@@ -229,6 +273,7 @@ public class CalendarEventService {
 
 			if (localEventOpt.isPresent()) {
 				localEventOpt.get().toggleImportance();
+				calendarEventRepository.save(localEventOpt.get());
 			} else {
 				log.info("로컬에 없는 이벤트(Google) 발견. Event ID: {}", eventId);
 				String accessToken = tokenManagerService.getToken(userEmail, "google");
@@ -248,25 +293,18 @@ public class CalendarEventService {
 
 		} else {
 			Optional<CalendarEvent> taskOpt = calendarEventRepository.findById(dbId);
-			if (taskOpt.isPresent()) {
+			if (taskOpt.isPresent() && taskOpt.get().getUserId().equals(user.getId())) {
 				CalendarEvent task = taskOpt.get();
-				if (!task.getUserId().equals(user.getId())) { // 보안 검사
-					throw new SecurityException("해당 이벤트(Task)에 접근할 권한이 없습니다.");
-				}
-				task.toggleImportance(); // CalendarEvent의 토글 메서드 호출
-				return; // 작업 완료
+				task.toggleImportance();
+				calendarEventRepository.save(task);
+				return; // Task 찾아서 토글했으니 종료
 			}
-
-			// B-2: Meeting 테이블에서 ID 조회 시도
 			Optional<Meeting> meetingOpt = meetingRepository.findById(dbId);
-			if (meetingOpt.isPresent()) {
+			if (meetingOpt.isPresent() && meetingOpt.get().getHostUser().getId().equals(user.getId())) {
 				Meeting meeting = meetingOpt.get();
-				if (!meeting.getHostUser().getId().equals(user.getId())) { // 보안 검사
-					throw new SecurityException("해당 회의(Meeting)의 중요도를 변경할 권한이 없습니다.");
-				}
-
-				meeting.toggleImportance();
-				return; // 작업 완료
+				meeting.toggleImportance(); // isImportant 필드 토글
+				meetingRepository.save(meeting);
+				return;
 			}
 			throw new ResourceNotFoundException("해당 ID(" + dbId + ")에 일치하는 이벤트(Task) 또는 회의(Meeting)가 없습니다.");
 		}
