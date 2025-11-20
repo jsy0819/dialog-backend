@@ -10,9 +10,9 @@ import lombok.Setter;
 @NoArgsConstructor
 public class MeetingFinishRequestDto {
     
-    private Integer duration;  // 회의 진행 시간 (초)
-    private String endTime;    // 종료 시간 (ISO format)
-    private RecordingData recording;  // 녹음 파일 정보
+    private Integer duration;					// 회의 진행 시간 (초)
+    private String endTime;						// 종료 시간 (ISO format)
+    private RecordingData recording;			// 녹음 파일 정보
     private List<TranscriptData> transcripts;
     
     @Getter
@@ -25,7 +25,7 @@ public class MeetingFinishRequestDto {
         private Integer durationSeconds;  // 녹음 길이 (초)
     }
     
-    // 🆕 발화자 구분 데이터 (신뢰도 제외)
+    // 발화자 구분 데이터 (신뢰도 제외)
     @Getter
     @Setter
     @NoArgsConstructor
