@@ -12,6 +12,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import com.dialog.global.utill.CookieUtil;
 import com.dialog.security.jwt.JwtAuthenticationFilter;
 import com.dialog.security.jwt.JwtTokenProvider;
 import com.dialog.security.oauth2.OAuth2AuthenticationFailurHandler;
@@ -25,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 @Configuration
-public class SecurityConfigJWT {
+public class SecurityConfig {
 
     private final MeetAuthenticationFaliureHandler faliureHandler;              // 폼 로그인 실패 시 처리기
     private final MeetAuthenticationSuccessHandler successHandler;              // 폼 로그인 성공 시 처리기
@@ -34,6 +35,7 @@ public class SecurityConfigJWT {
     private final CustomOAuth2UserService customOAuth2UserService;               // OAuth2UserService 커스텀 구현체
     private final JwtTokenProvider jwtTokenProvider;                             // JWT 토큰 생성/검증기
     private final OAuth2AuthorizationRequestResolver customAuthorizationRequestResolver;
+    private final CookieUtil cookieUtil;
 
     @Value("${app.oauth2.fail-uri}")
     String failUrl;
@@ -86,7 +88,7 @@ public class SecurityConfigJWT {
             .logout(logout -> logout.disable())
             
             // 9. JWT 필터 등록: 폼 로그인 전에 실행되도록 함
-            .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)            
+            .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, cookieUtil), UsernamePasswordAuthenticationFilter.class)            
             // 10. 인증/권한 관련 예외 처리 설정
             .exceptionHandling(ex -> ex
               .authenticationEntryPoint((request, response, authException) -> {

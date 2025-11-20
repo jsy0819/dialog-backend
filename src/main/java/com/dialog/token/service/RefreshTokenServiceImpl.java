@@ -115,6 +115,13 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         RefreshToken refreshToken = this.verifyTokenValidity(token);
         return RefreshTokenDto.fromEntity(refreshToken);
     }
+  
+    // User 조회 후 Refresh 토큰 삭제
+    @Override
+    @Transactional
+    public void deleteByEmail(String email) {
+        refreshTokenRepository.deleteByUserEmail(email); 
+    }
     
     
 }

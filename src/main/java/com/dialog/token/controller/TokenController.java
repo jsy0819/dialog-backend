@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dialog.exception.RefreshTokenException;
+import com.dialog.global.utill.CookieUtil;
 import com.dialog.token.service.TokenReissueService;
 
 import jakarta.servlet.http.Cookie;
@@ -20,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class TokenController {
    
     private final TokenReissueService tokenReissueService;
+    private final CookieUtil cookieUtil;
 
    
    // 토큰 재발급 메서드
@@ -31,14 +33,10 @@ public class TokenController {
         }
 
         try {
+            // 서비스에서 새로운 Access Token 문자열 받기
             String newAccessToken = tokenReissueService.reissueAccessToken(refreshToken);
-
-            Cookie accessTokenCookie = new Cookie("jwt", newAccessToken);
-            accessTokenCookie.setHttpOnly(true);
-            accessTokenCookie.setSecure(false);
-            accessTokenCookie.setPath("/");
-            accessTokenCookie.setMaxAge(60 * 60); // 1시간
-            response.addCookie(accessTokenCookie);
+            // CookieUtil을 사용하여 쿠키 생성 및 응답에 추가
+            response.addCookie(cookieUtil.createAccessTokenCookie(newAccessToken));
 
             return ResponseEntity.ok("Access token 재발급");
         } catch (RefreshTokenException e) {

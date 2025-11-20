@@ -1,4 +1,4 @@
-package com.dialog;
+package com.dialog.global.exception;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
