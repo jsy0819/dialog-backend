@@ -4,11 +4,10 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.List;
-import java.util.Optional;
 
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.dialog.exception.GoogleTokenExchangeException;
@@ -24,9 +23,12 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Transactional(readOnly = true)
 @RequiredArgsConstructor
+@Slf4j
 public class GoogleAuthService {
 
     private final GoogleAuthDTO googleAuthDTO;
@@ -47,8 +49,9 @@ public class GoogleAuthService {
     public String generateAuthUrl(Long userId) { // 2. Long userId 인자 추가
 
         GoogleAuthDTO.ProviderConfig config = getGoogleConfig();
-
-        String state = Base64.getUrlEncoder().withoutPadding().encodeToString(userId.toString().getBytes());
+        String state = Base64.getUrlEncoder()
+        		.withoutPadding()
+        		.encodeToString(userId.toString().getBytes());
 
         String authUrl = UriComponentsBuilder.fromUriString(config.getAuthUri())
             .queryParam("client_id", config.getClientId())
@@ -70,71 +73,60 @@ public class GoogleAuthService {
         if (userDetails instanceof CustomOAuth2User customOAuth2User) {
             return customOAuth2User.getMeetuser().getId();
         }
-
-        String identifier = userDetails.getUsername();
-
-        // JWT의 sub 필드에 Long userId를 문자열로 담았다고 가정하고 파싱합니다.
-        try {
-            MeetUser user = meetUserRepository.findByEmail(identifier)
-                                  .orElseThrow(() -> new UserNotFoundException("DB에서 사용자를 찾을 수 없습니다: " + identifier));
-
-            return user.getId();
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("사용자 식별자 형식 오류: " + identifier);
-        }
+        String email = userDetails.getUsername();
+        MeetUser user = meetUserRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("DB에서 사용자를 찾을 수 없습니다: " + email));
+        return user.getId();
     }
-
+    @Transactional
     public void exchangeCodeAndSaveToken(Long userId, String code) {
 
         GoogleAuthDTO.ProviderConfig config = getGoogleConfig();
 
         try {
-            List<String> scopes = Arrays.asList(config.getScope().split(" ")); // 콤마가 아닌 공백
-            GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(new NetHttpTransport(),
-                JacksonFactory.getDefaultInstance(),
-                config.getClientId(),
-                config.getClientSecret(),
-                scopes).setAccessType("offline")
-                .build();
+        	GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+                    new NetHttpTransport(), JacksonFactory.getDefaultInstance(),
+                    config.getClientId(), config.getClientSecret(),
+                    Arrays.asList(config.getScope().split(" ")))
+                    .setAccessType("offline")
+                    .build();
 
             GoogleTokenResponse response = flow.newTokenRequest(code)
-                .setRedirectUri(config.getRedirectUri())
-                .setGrantType("authorization_code") // 명시적으로 추가
-                .execute();
+                    .setRedirectUri(config.getRedirectUri())
+                    .setGrantType("authorization_code")
+                    .execute();
 
-            String refreshToken = response.getRefreshToken();
             String accessToken = response.getAccessToken();
+            String refreshToken = response.getRefreshToken(); // null일 수 있음
             Long expiresInSeconds = response.getExpiresInSeconds();
-
             LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(expiresInSeconds);
 
-            if (refreshToken == null) {
-                throw new GoogleTokenExchangeException("Refresh Token을 발급받지 못했습니다. (Google 계정 설정에서 앱 권한 삭제 후 재시도 필요)");
-            }
-
             MeetUser user = meetUserRepository.findById(userId)
-                        .orElseThrow(() -> new UserNotFoundException("토큰을 저장할 사용자를 찾을 수 없습니다. ID: " + userId));
+                    .orElseThrow(() -> new UserNotFoundException("사용자 없음 ID: " + userId));
+            
+            UserSocialToken token = tokenRepository.findByUser_IdAndProvider(userId, "google")
+                    .orElseGet(() -> {
+                        // 신규 생성
+                        UserSocialToken newToken = new UserSocialToken();
+                        newToken.setUser(user);
+                        newToken.setProvider("google");
+                        return newToken;
+                    });
 
-            Optional<UserSocialToken> existingTokenOpt = tokenRepository.findByUser_IdAndProvider(userId, "google");
-
-            if (existingTokenOpt.isPresent()) {
-                UserSocialToken existingToken = existingTokenOpt.get();
-                existingToken.setAccessToken(accessToken);
-                existingToken.setRefreshToken(refreshToken);
-                existingToken.setExpiresAt(expiresAt);
-                tokenRepository.save(existingToken);
-            } else {
-                UserSocialToken newGoogleToken = new UserSocialToken();
-                newGoogleToken.setUser(user);
-                newGoogleToken.setProvider("google");
-                newGoogleToken.setAccessToken(accessToken);
-                newGoogleToken.setRefreshToken(refreshToken);
-                newGoogleToken.setExpiresAt(expiresAt);
-                tokenRepository.save(newGoogleToken);
+            if (refreshToken != null) {
+                token.setRefreshToken(refreshToken);
+            } else if (token.getRefreshToken() == null) {
+                log.warn("Refresh Token이 발급되지 않았습니다. (userId={})", userId);
             }
+
+            token.setAccessToken(accessToken);
+            token.setExpiresAt(expiresAt);
+            
+            tokenRepository.save(token); // save는 insert/update 모두 처리
 
         } catch (IOException e) {
-            throw new GoogleTokenExchangeException("Google 토큰 교환 중 통신 오류 발생: " + e.getMessage(), e);
+            log.error("구글 토큰 교환 실패", e);
+            throw new GoogleTokenExchangeException("Google 토큰 통신 오류", e);
         }
     }
 }

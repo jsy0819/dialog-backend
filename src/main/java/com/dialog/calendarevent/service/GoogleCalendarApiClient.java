@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -19,6 +20,7 @@ import com.dialog.exception.GoogleOAuthException;
 
 import org.springframework.http.MediaType;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -29,13 +31,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Component // Spring Bean으로 등록
-@RequiredArgsConstructor // WebClient 주입
+@Component
+//@RequiredArgsConstructor
 public class GoogleCalendarApiClient {
 
 	private final WebClient webClient;
-	private static final String GOOGLE_CALENDAR_URL = "https://www.googleapis.com/calendar/v3/calendars/{calendarId}/events";
+	private final String googleCalendarUrl;
 	private static final DateTimeFormatter ISO_OFFSET_DATE_TIME = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+
+	public GoogleCalendarApiClient(WebClient webClient, 
+								  @Value("${google.api.calendar-url}") String googleCalendarUrl) {
+		this.webClient = webClient;
+		this.googleCalendarUrl = googleCalendarUrl;
+	}
 
 	public List<CalendarEventResponse> getEvents(String accessToken, String calendarId, LocalDateTime timeMin,
 			LocalDateTime timeMax) {
@@ -49,7 +57,7 @@ public class GoogleCalendarApiClient {
 
 		try {
 			// 2. WebClient를 사용하여 요청 구성 및 실행
-			GoogleEventResponseDTO eventsContainer = webClient.get().uri(GOOGLE_CALENDAR_URL, uriBuilder -> uriBuilder
+			GoogleEventResponseDTO eventsContainer = webClient.get().uri(this.googleCalendarUrl, uriBuilder -> uriBuilder
 					// API 요구사항에 맞는 쿼리 파라미터 추가
 					.queryParam("timeMin", timeMinStr).queryParam("timeMax", timeMaxStr)
 					.queryParam("singleEvents", true) // 반복 일정을 개별 이벤트로 확장
@@ -81,11 +89,11 @@ public class GoogleCalendarApiClient {
 					.collect(Collectors.toList());
 
 		} catch (Exception e) {
-			log.error("Google API 통신 중 예외 발생", e);         
-            
-            if (e instanceof GoogleOAuthException) {
-                throw (GoogleOAuthException) e; // 이미 GoogleOAuthException이면 그대로 던짐
-            }
+			log.error("Google API 통신 중 예외 발생", e);
+
+			if (e instanceof GoogleOAuthException) {
+				throw (GoogleOAuthException) e; // 이미 GoogleOAuthException이면 그대로 던짐
+			}
 			throw new GoogleOAuthException("Google API 통신 중 예외 발생: " + e.getMessage());
 		}
 	}
@@ -98,7 +106,7 @@ public class GoogleCalendarApiClient {
 
 		try {
 			GoogleEventResponseDTO responseBody = webClient.post() // POST 요청
-					.uri(GOOGLE_CALENDAR_URL, calendarId) // 캘린더 ID를 경로 변수로 설정
+					.uri(this.googleCalendarUrl, calendarId) // 캘린더 ID를 경로 변수로 설정
 
 					// 1. 헤더 설정: 인증 토큰 및 JSON 타입 명시
 					.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken).contentType(MediaType.APPLICATION_JSON)
@@ -121,7 +129,7 @@ public class GoogleCalendarApiClient {
 			return responseBody;
 
 		} catch (Exception e) {
-			log.error("Google API 통신 중 일정 생성 예외 발생", e); 
+			log.error("Google API 통신 중 일정 생성 예외 발생", e);
 			throw new GoogleOAuthException("일정 생성 API 통신 실패");
 		}
 	}
@@ -192,16 +200,18 @@ public class GoogleCalendarApiClient {
 			throw new IllegalArgumentException("eventData가 null입니다.");
 		}
 
-		final String GOOGLE_EVENT_PATCH_URL = GOOGLE_CALENDAR_URL + "/{eventId}";
+		//final String GOOGLE_EVENT_PATCH_URL = GOOGLE_CALENDAR_URL + "/{eventId}";
+		String patchUrl = this.googleCalendarUrl + "/{eventId}";
 
 		try {
-			GoogleEventResponseDTO responseBody = webClient.patch().uri(GOOGLE_EVENT_PATCH_URL, calendarId, eventId)
+			GoogleEventResponseDTO responseBody = webClient.patch().uri(patchUrl, calendarId, eventId)
 					.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken).contentType(MediaType.APPLICATION_JSON)
 					.bodyValue(eventData).retrieve().onStatus(HttpStatusCode::isError, response -> {
 						log.error("Google Calendar 이벤트 수정(Patch) 실패. Status: {}", response.statusCode());
 						return Mono.error(new RuntimeException(
 								"Google Calendar API 수정(Patch) 중 오류 발생: " + response.statusCode()));
-					}).bodyToMono(GoogleEventResponseDTO.class).block();
+					}).bodyToMono(GoogleEventResponseDTO.class).block(Duration.ofSeconds(5)); // 5초까지 기다렸다가 구글 서버가 응답
+																								// 안주면 에러발생시킴.
 
 			if (responseBody == null) {
 				throw new RuntimeException("Google Calendar 이벤트 수정 후 응답 본문이 비어있습니다.");
@@ -215,10 +225,11 @@ public class GoogleCalendarApiClient {
 	}
 
 	public void deleteEvent(String accessToken, String calendarId, String eventId) {
-		final String GOOGLE_EVENT_DELETE_URL = GOOGLE_CALENDAR_URL + "/{eventId}";
+		//final String GOOGLE_EVENT_DELETE_URL = GOOGLE_CALENDAR_URL + "/{eventId}";
+		String deleteUrl = this.googleCalendarUrl + "/{eventId}";
 		try {
-			webClient.delete() //2. [핵심] .delete() 메서드 사용
-					.uri(GOOGLE_EVENT_DELETE_URL, calendarId, eventId) // 3. URL 변수 매핑
+			webClient.delete() // 2. [핵심] .delete() 메서드 사용
+					.uri(this.googleCalendarUrl, calendarId, eventId) // 3. URL 변수 매핑
 					.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken) // 4. 헤더 설정
 					.retrieve().onStatus(HttpStatusCode::isError, response -> {
 						log.error("Google Calendar 이벤트 삭제(Delete) 실패. Status: {}", response.statusCode());
@@ -230,11 +241,10 @@ public class GoogleCalendarApiClient {
 						}
 						return Mono.error(new RuntimeException(
 								"Google Calendar API 삭제(Delete) 중 오류 발생: " + response.statusCode()));
-					}).bodyToMono(Void.class)
-					.block();
+					}).bodyToMono(Void.class).block();
 
 		} catch (Exception e) {
-			log.error("Google API 통신 중 일정 삭제(Delete) 예외 발생", e);			
+			log.error("Google API 통신 중 일정 삭제(Delete) 예외 발생", e);
 			throw new GoogleOAuthException("일정 삭제(Delete) API 통신 실패");
 		}
 	}

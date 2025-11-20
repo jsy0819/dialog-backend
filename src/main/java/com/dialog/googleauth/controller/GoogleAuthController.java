@@ -1,5 +1,6 @@
 package com.dialog.googleauth.controller;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -22,7 +23,10 @@ import java.util.Map;
 public class GoogleAuthController {
 
     private final GoogleAuthService googleAuthService;
-
+    
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+    
     @GetMapping("/api/calendar/link/start")
     public ResponseEntity<?> startGoogleAccountLink(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails)) {
@@ -49,13 +53,13 @@ public class GoogleAuthController {
         try {
             userId = Long.parseLong(new String(Base64.getUrlDecoder().decode(state)));
         } catch (Exception e) {
-            response.sendRedirect("/error-page?message=invalid_state");
+        	response.sendRedirect(frontendUrl + "/error.html?message=invalid_state");
             return;
         }
 
         try {
             googleAuthService.exchangeCodeAndSaveToken(userId, code);
-            response.sendRedirect("http://localhost:5500/home.html?link=success");
+            response.sendRedirect(frontendUrl + "/home.html?link=success");
         } catch (UserNotFoundException e) {
             response.sendRedirect("/error-page?message=user_not_found");
         } catch (IOException e) {

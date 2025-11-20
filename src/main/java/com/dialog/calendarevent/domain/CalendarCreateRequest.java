@@ -17,8 +17,5 @@ public class CalendarCreateRequest {
 	// 1. String 대신 EventType Enum을 사용하여 타입 안전성 확보
 	private EventType eventType; 
 	
-	private boolean isImportant;
-    
-    // 로컬 DB 연결을 위한 ID
-    private Long referenceId; // task_id 또는 meeting_id를 담을 수 있는 범용 필드
+	private boolean isImportant;    
 }

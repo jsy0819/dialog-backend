@@ -33,7 +33,7 @@ public class GoogleEventResponseDTO {
 	private EventDateTimeDTO end;
 
     @JsonProperty("items")
-	private List<GoogleEventResponseDTO> items; // ⭐ 스스로의 리스트를 담도록 변경
+	private List<GoogleEventResponseDTO> items;
 
 	public List<GoogleEventResponseDTO> getItems() {
         return items;

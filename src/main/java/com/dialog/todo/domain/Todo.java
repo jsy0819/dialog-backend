@@ -1,4 +1,4 @@
-package com.dialog.calendarevent.domain;
+package com.dialog.todo.domain;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
@@ -74,8 +74,6 @@ public class Todo {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    // --- 편의 메서드 (비즈니스 로직) ---
 
     // 정보 수정
     public void updateInfo(String title, String description, LocalDate dueDate, String assigneeName) {

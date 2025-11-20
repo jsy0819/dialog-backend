@@ -1,4 +1,4 @@
-package com.dialog.calendarevent.domain;
+package com.dialog.todo.domain;
 
 public enum TodoSource {
 	AI_EXTRACTED, // AI가 회의록에서 자동 추출
