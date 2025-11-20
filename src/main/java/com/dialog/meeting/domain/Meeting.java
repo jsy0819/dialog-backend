@@ -7,7 +7,7 @@ import java.util.List;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import com.dialog.keyword.domain.Keyword;
+import com.dialog.meetingresult.domain.MeetingResult;
 import com.dialog.participant.domain.Participant;
 import com.dialog.recording.domain.Recording;
 import com.dialog.transcript.domain.Transcript;
@@ -23,9 +23,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
 import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
@@ -49,88 +47,93 @@ public class Meeting {
 	private Long id;
 
 	@Column(nullable = false, length = 255)
-	private String title; // 회의 제목
+	private String title;
 
 	@Lob
-	private String description; // 회의 설명
+	private String description;
 
 	@Column(name = "scheduled_at", nullable = false)
-	private LocalDateTime scheduledAt; // 예약된 회의 시작 시간
+	private LocalDateTime scheduledAt;
 
 	@Column(name = "started_at")
-	private LocalDateTime startedAt; // 실제 회의 시작 시간
+	private LocalDateTime startedAt;
 
 	@Column(name = "ended_at")
-	private LocalDateTime endedAt; // 실제 회의 종료 시간
+	private LocalDateTime endedAt;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
 	@Builder.Default
-	private Status status = Status.SCHEDULED; // 회의 상태
+	private Status status = Status.SCHEDULED;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "host_user_id", nullable = false)
-	private MeetUser hostUser; // 회의 주최자 (MeetUser 엔티티 참조)
+	private MeetUser hostUser;
 
-	@Lob
-	private String summary; // AI 회의 요약본
-
-	@CreationTimestamp // 엔티티 생성 시 자동으로 현재 시간 저장
+	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false)
-	private LocalDateTime createdAt; // 레코드 생성 일시
+	private LocalDateTime createdAt;
 
-	@UpdateTimestamp // 엔티티 수정 시 자동으로 현재 시간 저장
+	@UpdateTimestamp
 	@Column(name = "updated_at", nullable = false)
-	private LocalDateTime updatedAt; // 레코드 마지막 수정 일시
+	private LocalDateTime updatedAt;
 
+	// 사용자가 지정하는 중요도 (리스트 필터링용)
 	@Column(name = "is_important", nullable = false)
-    @Builder.Default
-    private boolean isImportant = false; // 회의 중요도
-	
+	@Builder.Default
+	private boolean isImportant = false;
+
+	// 사용자가 회의 생성 시 미리 입력한 '관심 키워드' (단순 텍스트로 저장)
+	// 예: "예산, 일정, 기획" -> AI 분석 결과인 Keyword 엔티티와는 용도가 다름
+	@Column(name = "highlight_keywords")
+	private String highlightKeywords;
+
+	// --- 연관 관계 ---
+
 	@OneToMany(mappedBy = "meeting", fetch = FetchType.LAZY)
 	private List<Participant> participants;
-	
-	// 1:1 Recording 설정
-    @OneToOne(mappedBy = "meeting", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private Recording recording;
 
-	// 1:N Transcript 설정
-    @OneToMany(mappedBy = "meeting", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<Transcript> transcripts = new ArrayList<>();
-	
-	// 키워드 연관관계 (다대다)
+	@OneToOne(mappedBy = "meeting", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+	private Recording recording;
+
+	// Transcript는 Meeting에 직접 종속 (사실 데이터)
+	@OneToMany(mappedBy = "meeting", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
 	@Builder.Default
-	@ManyToMany
-	@JoinTable(name = "MeetingKeyword", joinColumns = @JoinColumn(name = "meeting_id"), inverseJoinColumns = @JoinColumn(name = "keyword_id"))
-	private List<Keyword> keywords = new ArrayList<>();
+	private List<Transcript> transcripts = new ArrayList<>();
+
+	// MeetingResult (결과 데이터) 분리 - 1:1 매핑
+	@OneToOne(mappedBy = "meeting", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+	private MeetingResult meetingResult;
+
+	// --- 비즈니스 메서드 ---
 
 	public void updateInfo(String title, String description) {
-		if (title != null) {
+		if (title != null)
 			this.title = title;
-		}
-		if (description != null) {
+		if (description != null)
 			this.description = description;
-		}
 	}
 
-	// 회의 상태를 '녹음 중(RECORDING)'으로 변경하고 시작 시간을 기록합니다.
 	public void startRecording() {
 		this.status = Status.RECORDING;
 		this.startedAt = LocalDateTime.now();
 	}
 
-	// 회의 상태를 '완료(COMPLETED)'로 변경하고 종료 시간을 기록합니다.
 	public void complete() {
 		this.status = Status.COMPLETED;
 		this.endedAt = LocalDateTime.now();
 	}
 
-	// AI 요약본을 업데이트합니다.
-	public void updateSummary(String newSummary) {
-		this.summary = newSummary;
+	public void toggleImportance() {
+		this.isImportant = !this.isImportant;
 	}
 
-    public void toggleImportance() {
-        this.isImportant = !this.isImportant;
-    }
+	// 연관관계 편의 메서드
+	public void setMeetingResult(MeetingResult meetingResult) {
+		this.meetingResult = meetingResult;
+		if (meetingResult != null && meetingResult.getMeeting() != this) {
+			// MeetingResult 쪽에도 meeting을 세팅해주기 위함 (순환 호출 주의 필요하지만 Setter가 없다면 Builder나 생성자에서 처리됨)
+			// MeetingResult Entity에 setMeeting이 없다면 이 부분은 로직에 따라 조정 필요
+		}
+	}
 }
