@@ -2,9 +2,7 @@ package com.dialog.calendarevent.controller;
 
 import java.security.Principal;
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -38,7 +36,7 @@ import lombok.extern.log4j.Log4j2;
 public class CalendarEventController {
 
 	private final CalendarEventService calendarEventService;
-	private final SocialTokenService tokenManagerService;	
+	private final SocialTokenService tokenManagerService;
 
 	@GetMapping("/calendar/events")
 	public ResponseEntity<List<CalendarEventResponse>> getEvents(Principal principal, // ResponseEntity<?> ->
@@ -62,7 +60,7 @@ public class CalendarEventController {
 		if (principal == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
-		if (request == null || request.getEventData() == null) {		
+		if (request == null || request.getEventData() == null) {
 			throw new IllegalArgumentException("이벤트 데이터가 비어있습니다.");
 		}
 
@@ -114,37 +112,34 @@ public class CalendarEventController {
 	}
 
 	@PatchMapping("/calendar/{eventId}/importance")
-    public ResponseEntity<Void> toggleImportance(
-            @PathVariable("eventId") String eventId,
-            Principal principal) {
+	public ResponseEntity<Void> toggleImportance(@PathVariable("eventId") String eventId, Principal principal) {
 
-        if (principal == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        
-        // 현재 로그인한 사용자 이메일
-        String userEmail = principal.getName();
+		if (principal == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
 
-        // [중요] 서비스 계층에도 userEmail과 eventId를 전달합니다.
-        calendarEventService.toggleImportance(userEmail, eventId);
+		// 현재 로그인한 사용자 이메일
+		String userEmail = principal.getName();
 
-        return ResponseEntity.ok().build();
-    }
+		// [중요] 서비스 계층에도 userEmail과 eventId를 전달합니다.
+		calendarEventService.toggleImportance(userEmail, eventId);
+
+		return ResponseEntity.ok().build();
+	}
+
 	@PatchMapping("/calendar/events/{eventId}/completion")
-    public ResponseEntity<Void> updateEventCompletion(
-            @PathVariable("eventId") String eventId,
-            @RequestBody EventCompletionRequest request,
-            Principal principal) {
+	public ResponseEntity<Void> updateEventCompletion(@PathVariable("eventId") String eventId,
+			@RequestBody EventCompletionRequest request, Principal principal) {
 
-        if (principal == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        
-        String userEmail = principal.getName();        
+		if (principal == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
 
-        calendarEventService.updateCompletionStatus(userEmail, eventId, request.isCompleted());
+		String userEmail = principal.getName();
 
-        return ResponseEntity.ok().build();
-    }
-	
+		calendarEventService.updateCompletionStatus(userEmail, eventId, request.isCompleted());
+
+		return ResponseEntity.ok().build();
+	}
+
 }

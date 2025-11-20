@@ -17,16 +17,14 @@ import com.dialog.calendarevent.domain.CalendarEventResponse;
 import com.dialog.calendarevent.domain.EventType;
 import com.dialog.calendarevent.domain.GoogleEventRequestDTO;
 import com.dialog.calendarevent.domain.GoogleEventResponseDTO;
-import com.dialog.calendarevent.domain.Todo;
 import com.dialog.calendarevent.repository.CalendarEventRepository;
-import com.dialog.calendarevent.repository.TodoRepository;
 import com.dialog.exception.GoogleOAuthException;
 import com.dialog.exception.ResourceNotFoundException;
-import com.dialog.keyword.domain.Keyword;
-import com.dialog.keyword.repository.KeywordRepository;
 import com.dialog.meeting.domain.Meeting;
 import com.dialog.meeting.domain.Status;
 import com.dialog.meeting.repository.MeetingRepository;
+import com.dialog.todo.domain.Todo;
+import com.dialog.todo.repository.TodoRepository;
 import com.dialog.token.service.SocialTokenService;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.repository.MeetUserRepository;
@@ -60,60 +58,35 @@ public class CalendarEventService {
 		List<CalendarEvent> localEvents = calendarEventRepository.findByUserIdAndEventDateBetween(userId, startDate,
 				endDate);
 
-		Map<String, CalendarEvent> localEventMap = localEvents.stream().filter(e -> e.getGoogleEventId() != null)
-				.collect(Collectors.toMap(CalendarEvent::getGoogleEventId, e -> e, (p1, p2) -> p1));
-
-		List<CalendarEventResponse> onlyLocalTasks = localEvents.stream().filter(e -> e.getGoogleEventId() == null)
-				.map(CalendarEventResponse::from).collect(Collectors.toList());
-
+		List<CalendarEventResponse> responseEvents = localEvents.stream()
+				.map(CalendarEventResponse::from)
+				.collect(Collectors.toList());
 		LocalDateTime startDateTime = startDate.atStartOfDay();
 		LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
 
 		List<Meeting> dbMeetings = meetingRepository.findAllByScheduledAtBetween(startDateTime, endDateTime);
 
-		List<CalendarEventResponse> meetingEvents = dbMeetings.stream().map(meeting -> {
-
-			boolean isImportant = meeting.isImportant();
-			boolean isCompleted = (meeting.getStatus() == Status.COMPLETED);
-
-			return CalendarEventResponse.builder().id(meeting.getId()).userId(meeting.getHostUser().getId())
-					.title(meeting.getTitle()).eventDate(meeting.getScheduledAt().toLocalDate().toString())
-					.time(meeting.getScheduledAt().toLocalTime()).eventType("MEETING").isImportant(isImportant)
-					.isCompleted(isCompleted).sourceId("db-meeting-" + meeting.getId()).googleEventId(null)
-					.createdAt(meeting.getCreatedAt()).build();
-		}).collect(Collectors.toList());
 
 		if (accessToken == null || accessToken.isEmpty()) {
 			log.warn("Google AccessToken이 없어 로컬 데이터만 반환합니다.");
-			List<CalendarEventResponse> allLocalData = new ArrayList<>();
-			allLocalData.addAll(onlyLocalTasks);
-			allLocalData.addAll(meetingEvents);
-			return allLocalData;
+			return responseEvents;
 		}
 
 		try {
+
 			List<CalendarEventResponse> googleEvents = googleCalendarApiClient.getEvents(accessToken, "primary",
-					startDateTime, endDateTime);
+					startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay());
+			
+			Map<String, CalendarEventResponse> localGoogleMap = responseEvents.stream()
+                    .filter(e -> e.getGoogleEventId() != null)
+                    .collect(Collectors.toMap(CalendarEventResponse::getGoogleEventId, e -> e));
 
 			for (CalendarEventResponse gEvent : googleEvents) {
-				String googleId = gEvent.getGoogleEventId();
-				if (googleId != null && localEventMap.containsKey(googleId)) {
-					CalendarEvent localMatch = localEventMap.get(googleId);
-					gEvent.setImportant(localMatch.isImportant());
-					if (localMatch.getEventType() != null) {
-						gEvent.setEventType(localMatch.getEventType().name());
-					}
-					gEvent.setId(localMatch.getId());
-					gEvent.setCompleted(localMatch.isCompleted());
-				}
-			}
-
-			List<CalendarEventResponse> finalEvents = new ArrayList<>();
-			finalEvents.addAll(googleEvents);
-			finalEvents.addAll(onlyLocalTasks);
-			finalEvents.addAll(meetingEvents);
-
-			return finalEvents;
+                if (!localGoogleMap.containsKey(gEvent.getGoogleEventId())) {
+                    responseEvents.add(gEvent); // 로컬에 없는 새 구글 일정만 추가
+                }
+            }
+			return responseEvents;
 
 		} catch (Exception e) {
 			String errorMessage = (e.getMessage() != null) ? e.getMessage() : "";
@@ -175,7 +148,7 @@ public class CalendarEventService {
 						.dueDate(eventDate) // 날짜 -> 마감일
 						.user(user).build();
 
-				savedTodo = todoRepository.save(newTodo); // ★ Todo 저장
+				savedTodo = todoRepository.save(newTodo); // Todo 저장
 				log.info("연관 Todo 생성 완료: ID={}", savedTodo.getId());
 			}
 
@@ -297,7 +270,7 @@ public class CalendarEventService {
 				CalendarEvent task = taskOpt.get();
 				task.toggleImportance();
 				calendarEventRepository.save(task);
-				return; // Task 찾아서 토글했으니 종료
+				return;
 			}
 			Optional<Meeting> meetingOpt = meetingRepository.findById(dbId);
 			if (meetingOpt.isPresent() && meetingOpt.get().getHostUser().getId().equals(user.getId())) {
@@ -312,8 +285,7 @@ public class CalendarEventService {
 
 	@Transactional
 	public void updateCompletionStatus(String userEmail, String eventId, boolean isCompleted) {
-
-		Long dbEventId;
+		Long dbEventId;		
 		try {
 			dbEventId = Long.parseLong(eventId);
 		} catch (NumberFormatException e) {
@@ -330,9 +302,8 @@ public class CalendarEventService {
 		if (!event.getUserId().equals(user.getId())) {
 			throw new SecurityException("해당 이벤트에 접근할 권한이 없습니다.");
 		}
-
 		event.setIsCompleted(isCompleted);
-
+		calendarEventRepository.save(event);
 		log.info("이벤트 완료 상태 변경 (ID: {}, 완료: {})", eventId, isCompleted);
 	}
 }

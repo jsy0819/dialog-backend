@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 import com.dialog.meeting.domain.Meeting;
+import com.dialog.todo.domain.Todo;
 
 import java.time.LocalDateTime; // 필요 시 사용
 
@@ -65,17 +66,15 @@ public class CalendarEvent {
 
 	@Builder
 	public CalendarEvent(Long userId, String title, LocalDate eventDate, LocalTime eventTime, EventType eventType,
-			boolean isImportant, Todo task, Meeting meeting, String googleEventId) { // <-- 여기 파라미터 타입 변경
+			boolean isImportant, Todo task, Meeting meeting, String googleEventId) { 
 		this.userId = userId;
 		this.title = title;
 		this.eventDate = eventDate;
 		this.eventTime = eventTime;
 		this.eventType = eventType;
 		this.isImportant = isImportant;
-
 		this.task = task;
 		this.meeting = meeting;
-
 		this.googleEventId = googleEventId;
 		this.createdAt = LocalDateTime.now();
 	}

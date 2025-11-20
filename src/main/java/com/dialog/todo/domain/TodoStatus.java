@@ -1,4 +1,4 @@
-package com.dialog.calendarevent.domain;
+package com.dialog.todo.domain;
 
 public enum TodoStatus {
 	TODO,

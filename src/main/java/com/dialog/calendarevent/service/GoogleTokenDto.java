@@ -15,7 +15,7 @@ public class GoogleTokenDto {
 	private String accessToken;
 
 	@JsonProperty("expires_in")
-	private Long expiresIn; // Long으로 설정하여 Integer 값도 수용 가능하게 처리
+	private Long expiresIn;
 
 	@JsonProperty("scope")
 	private String scope;

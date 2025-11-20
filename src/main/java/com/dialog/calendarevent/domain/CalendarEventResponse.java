@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @AllArgsConstructor 
 public class CalendarEventResponse {
 
-	private Long id; // final 제거 확인됨 (Good!)
+	private Long id;
 	private Long userId;
 	private String title;
 
@@ -43,15 +43,16 @@ public class CalendarEventResponse {
 		}
 
 		String sourceId = null;
-		if (entity.getEventType() == EventType.TASK && entity.getTask() != null) {
-			sourceId = entity.getTask().toString();
-		} else if (entity.getEventType() == EventType.MEETING && entity.getMeeting() != null) {
-			sourceId = entity.getMeeting().toString();
-		} else if (entity.getGoogleEventId() != null) {
-			sourceId = entity.getGoogleEventId();
-		}
+	    // 객체 자체가 아니라, 객체의 getId()를 호출해야 합니다.
+	    if (entity.getEventType() == EventType.TASK && entity.getTask() != null) {
+	        sourceId = String.valueOf(entity.getTask().getId()); 
+	    } else if (entity.getEventType() == EventType.MEETING && entity.getMeeting() != null) {
+	        sourceId = String.valueOf(entity.getMeeting().getId());
+	    } else if (entity.getGoogleEventId() != null) {
+	        sourceId = entity.getGoogleEventId();
+	    }
 
-		return CalendarEventResponse.builder().id(entity.getId()).userId(entity.getUserId()).title(entity.getTitle())
+	    return CalendarEventResponse.builder().id(entity.getId()).userId(entity.getUserId()).title(entity.getTitle())
 				.eventDate(entity.getEventDate() != null ? entity.getEventDate().toString() : null)
 				.time(entity.getEventTime()).eventType(entity.getEventType().name()).isImportant(entity.isImportant())
 				.isCompleted(entity.isCompleted()).sourceId(sourceId).googleEventId(entity.getGoogleEventId()).createdAt(entity.getCreatedAt()).build();

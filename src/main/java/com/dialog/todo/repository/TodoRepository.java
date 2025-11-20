@@ -1,7 +1,7 @@
-package com.dialog.calendarevent.repository;
+package com.dialog.todo.repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.dialog.calendarevent.domain.Todo;
+import com.dialog.todo.domain.Todo;
 
 public interface TodoRepository extends JpaRepository<Todo, Long> {
 
