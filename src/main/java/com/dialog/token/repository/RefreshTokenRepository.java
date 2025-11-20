@@ -23,6 +23,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     // 리프레시 토큰도 삭제해야해서 메서드 추가.
     @Transactional
 	void deleteByUser(MeetUser user);
+
+	void deleteByUserEmail(String email);
     
     
 }

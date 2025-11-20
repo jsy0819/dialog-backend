@@ -16,4 +16,7 @@ public interface RefreshTokenService {
     void revokeToken(String token);
 
     void deleteExpiredTokens();
+
+	void deleteByEmail(String email);
+	
 }

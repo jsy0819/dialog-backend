@@ -17,4 +17,8 @@ public class LoginDto {
 
     @NotBlank
     private String password;
+    
+    // 아이디 기억하기 체크 여부 추가
+    private boolean rememberId; 
+    
 }

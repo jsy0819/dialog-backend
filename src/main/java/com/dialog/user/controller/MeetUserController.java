@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dialog.exception.UserRoleAccessDeniedException;
+import com.dialog.global.utill.CookieUtil;
 import com.dialog.security.jwt.JwtTokenProvider;
 import com.dialog.security.oauth2.SocialUserInfo;
 import com.dialog.security.oauth2.SocialUserInfoFactory;
@@ -53,8 +54,9 @@ public class MeetUserController {
 	private final MeetuserService meetuserService;
 	private final JwtTokenProvider jwtTokenProvider;
 	private final RefreshTokenServiceImpl refreshTokenService;
+	private final CookieUtil cookieUtil;
 
-    // 1. 회원가입
+    // 회원가입
     @PostMapping("/api/auth/signup")
     public ResponseEntity<?> signup(@Valid @RequestBody MeetUserDto dto) {
         // 클라이언트로부터 회원가입 요청 데이터(dto)를 받음 (JSON → MeetUserDto 변환)
@@ -66,7 +68,7 @@ public class MeetUserController {
         return ResponseEntity.ok(Map.of("success", true, "message", "회원가입 성공"));
     }
 
-    // 2. 로그인
+    // 로그인
     @PostMapping(value = "/api/auth/login", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> login(@RequestBody LoginDto dto, HttpServletResponse response) {
         // 클라이언트로부터 로그인 요청 데이터(email, password)를 받음
@@ -79,27 +81,28 @@ public class MeetUserController {
             user.getEmail(), null, List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
         );
 
-        // JWT 토큰 생성
-        String token = jwtTokenProvider.createToken(authentication);
-
-        // JWT 토큰을 HTTP Only 쿠키에 저장하여 클라이언트에 전달
-        Cookie jwtCookie = new Cookie("jwt", token);
-        jwtCookie.setHttpOnly(true);
-        jwtCookie.setPath("/");
-        jwtCookie.setMaxAge(60 * 60 * 3); // 3시간 유효
-        jwtCookie.setSecure(false);
-        response.addCookie(jwtCookie);
-
+        // Access Token(JWT) 토큰 생성
+        String accessToken = jwtTokenProvider.createToken(authentication);
         // Refresh Token 생성 및 반환할 DTO 생성
         RefreshTokenDto refreshTokenDto = refreshTokenService.createRefreshTokenDto(user);
+
+        // 2. HTTP 응답 설정 (CookieUtill 클래스에서 쿠키 처리)
+        response.addCookie(cookieUtil.createAccessTokenCookie(accessToken));
+        response.addCookie(cookieUtil.createRefreshTokenCookie(refreshTokenDto.getRefreshToken()));
+
+        // 아이디 기억하기 처리
+        if (dto.isRememberId()) {
+            response.addCookie(cookieUtil.createRememberMeCookie(user.getEmail()));
+        } else {
+        	// 아이디 기억하기는 js 에서 접근해도 위험이 적어 HttpOnly=false 로 설정해줌
+            response.addCookie(cookieUtil.deleteCookie("savedEmail", false));
+        }
 
         // 로그인 성공 정보와 토큰, 사용자 정보 등을 JSON 응답의 형태로 반환
         return ResponseEntity.ok(Map.of(
             "success", true,
-            "token", token,
-            "refreshToken", refreshTokenDto.getRefreshToken(),
-            "refreshTokenExpiresAt", refreshTokenDto.getExpiresAt(),
             "message", "로그인 성공",
+            "refreshTokenExpiresAt", refreshTokenDto.getExpiresAt(),
             "user", Map.of(
                 "name", user.getName(),
                 "email", user.getEmail(),
@@ -107,8 +110,21 @@ public class MeetUserController {
             )
         ));
     }
+    
+    // 로그아웃 (HttpOnly 쿠키 삭제를 위해 필수)
+    @PostMapping("/api/auth/logout")
+    public ResponseEntity<?> logout(HttpServletResponse response, Authentication authentication) {   	
+    	// 로그아웃 시 쿠키 삭제
+        response.addCookie(cookieUtil.deleteCookie("jwt"));
+        response.addCookie(cookieUtil.deleteCookie("refreshToken"));
+        // DB에서 Refresh Token 삭제 
+        if (authentication != null && authentication.isAuthenticated()) {
+            refreshTokenService.deleteByEmail(authentication.getName());
+        }
+        return ResponseEntity.ok(Map.of("success", true, "message", "로그아웃 성공"));
+    }
 
-    // 3. 현재 로그인된 사용자 정보 조회
+    // 현재 로그인된 사용자 정보 조회
     @GetMapping("/api/auth/me")
     public ResponseEntity<?> getCurrentUserInfo(Authentication authentication) {
         // 현재 인증된 사용자 인증 정보를 파라미터로 받아서,
@@ -123,7 +139,7 @@ public class MeetUserController {
         ));
     }
 
-    // 4. 설정 페이지에서 사용자 정보(직무/직급) 업데이트
+    // 설정 페이지에서 사용자 정보(직무/직급) 업데이트
     @PutMapping("/api/user/settings")
     public ResponseEntity<?> updateUserSettings(Authentication authentication, 
                                                 @Valid @RequestBody UserSettingsUpdateDto dto) {

@@ -15,6 +15,7 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 import org.springframework.stereotype.Component;
 
 import com.dialog.exception.UserNotFoundException;
+import com.dialog.global.utill.CookieUtil;
 import com.dialog.security.jwt.JwtTokenProvider;
 import com.dialog.token.domain.RefreshTokenDto;
 import com.dialog.token.service.RefreshTokenServiceImpl;
@@ -37,6 +38,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
    private final RefreshTokenServiceImpl refreshTokenService;
    private final UserTokenServiceImpl userTokenService;
    private final OAuth2AuthorizedClientService authorizedClientService;
+   private final CookieUtil cookieUtil;
 
     @Value("${app.oauth2.redirect-uri}")
     String redirectUrl ;
@@ -98,27 +100,12 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
            // 4. 리프레시 토큰 생성 및 DTO 획득
            RefreshTokenDto refreshTokenDto = refreshTokenService.createRefreshTokenDto(user);
-           String refreshToken = refreshTokenDto.getRefreshToken();  // 토큰 문자열
-           LocalDateTime expiresAt = refreshTokenDto.getExpiresAt(); // 만료 시간
-           log.info("리프레시 토큰 만료 시각: {}", expiresAt);
-
-           // 5. 액세스 토큰 쿠키 설정
-           Cookie accessTokenCookie = new Cookie("jwt", accessToken);
-           accessTokenCookie.setPath("/");
-           accessTokenCookie.setHttpOnly(true);  // JS 접근 차단
-           accessTokenCookie.setSecure(false);    // HTTPS 환경에서 true
-           accessTokenCookie.setMaxAge(60 * 60 * 24); // 1일
-           response.addCookie(accessTokenCookie);
-
-           // 6. 리프레시 토큰 쿠키 설정
-           Cookie refreshTokenCookie = new Cookie("refreshToken", refreshTokenDto.getRefreshToken());
-           refreshTokenCookie.setPath("/");
-           refreshTokenCookie.setHttpOnly(true);  // JS 접근 차단
-           refreshTokenCookie.setSecure(false);
-           int refreshTokenMaxAge = (int) Duration.between(
-                  LocalDateTime.now(), refreshTokenDto.getExpiresAt()).getSeconds();
-           refreshTokenCookie.setMaxAge(refreshTokenMaxAge);
-           response.addCookie(refreshTokenCookie);
+           log.info("리프레시 토큰 만료 시각: {}", refreshTokenDto.getExpiresAt());
+           // 5. 쿠키 설정 (CookieUtil 사용으로 간소화)
+           // Access Token 쿠키 추가 (3시간, HttpOnly=true)
+           response.addCookie(cookieUtil.createAccessTokenCookie(accessToken));
+           // Refresh Token 쿠키 추가 (7일, HttpOnly=true)
+           response.addCookie(cookieUtil.createRefreshTokenCookie(refreshTokenDto.getRefreshToken()));
 
            // 7. 리다이렉트
            getRedirectStrategy().sendRedirect(request, response, redirectUrl);

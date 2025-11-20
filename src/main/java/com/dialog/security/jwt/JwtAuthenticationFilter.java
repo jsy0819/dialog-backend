@@ -10,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.dialog.exception.InvalidJwtTokenException;
+import com.dialog.global.utill.CookieUtil;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final CookieUtil cookieUtil;
 
     // 1. 매 요청마다 실행되는 필터의 핵심 로직
     @Override
@@ -31,7 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         log.debug("JWT 필터 실행 - URI: {}", request.getRequestURI());
 
         String uri = request.getRequestURI();
-        // 재발급 엔드포인트에서는 토큰 없이도 통과되게 처리!
+        // 재발급 엔드포인트에서는 토큰 없이도 통과되게 처리
         if ("/api/reissue".equals(uri)) {
             chain.doFilter(request, response);
             return;
@@ -39,18 +41,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 2. 요청에서 JWT 토큰 추출
         String token = resolveToken(request); // 헤더 또는 쿠키에서 토큰 추출
-        log.debug("추출된 JWT 토큰: {}", token);
 
         // 3. 토큰이 존재하고, 유효한 경우
         if (token != null) {
             try {
                 // 예외 발생 시 catch로 넘어감, 성공하면 인증객체 생성
                 jwtTokenProvider.validateTokenOrThrow(token);
-
                 Authentication authentication = jwtTokenProvider.getAuthentication(token);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (InvalidJwtTokenException e) {
-                log.error("JWT 인증 처리 중 오류 발생:", e);
+                log.error("JWT 인증 실패: {}", e.getMessage());
                 SecurityContextHolder.clearContext();
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return; // 요청 차단
@@ -75,14 +75,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
 
-        Cookie[] cookies = request.getCookies();
-        log.debug("쿠키 개수: {}", cookies != null ? cookies.length : 0);
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("jwt".equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().trim().isEmpty()) {
-                    return cookie.getValue();
-                }
-            }
+        Cookie jwtCookie = cookieUtil.getCookie(request, "jwt");
+        if (jwtCookie != null) {
+            return jwtCookie.getValue();
         }
 
         log.debug("JWT 토큰을 찾을 수 없음");
