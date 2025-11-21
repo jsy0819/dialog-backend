@@ -21,4 +21,7 @@ public class LoginDto {
     // 아이디 기억하기 체크 여부 추가
     private boolean rememberId; 
     
+    // 직무 설정 여부 확인 
+    private boolean needJobSetup;
+    
 }

@@ -7,6 +7,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import com.dialog.user.domain.Job;
 import com.dialog.user.domain.MeetUser;
 
 public class CustomUserDetails implements UserDetails {
@@ -19,6 +20,11 @@ public class CustomUserDetails implements UserDetails {
     
     public MeetUser getMeetUser() {
         return this.user;
+    }
+    
+    // 직무 설정이 안 되어 있는지 확인
+    public boolean isJobEmpty() {
+        return this.user.getJob() == Job.NONE; 
     }
 
     public Long getId() {

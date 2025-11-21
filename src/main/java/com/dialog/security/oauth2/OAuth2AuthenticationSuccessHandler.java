@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.dialog.exception.UserNotFoundException;
 import com.dialog.global.utill.CookieUtil;
@@ -20,6 +21,7 @@ import com.dialog.security.jwt.JwtTokenProvider;
 import com.dialog.token.domain.RefreshTokenDto;
 import com.dialog.token.service.RefreshTokenServiceImpl;
 import com.dialog.token.service.UserTokenServiceImpl;
+import com.dialog.user.domain.Job;
 import com.dialog.user.domain.MeetUser;
 
 import jakarta.servlet.ServletException;
@@ -107,9 +109,24 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
            // Refresh Token 쿠키 추가 (7일, HttpOnly=true)
            response.addCookie(cookieUtil.createRefreshTokenCookie(refreshTokenDto.getRefreshToken()));
 
-           // 7. 리다이렉트
-           getRedirectStrategy().sendRedirect(request, response, redirectUrl);
-           log.info("리다이렉트 완료 : {}", redirectUrl);
+           // 6. 리다이렉트
+           
+           String targetUrl = redirectUrl; // application.yml에서 가져온 기본 URL
+
+           // 사용자의 직무가 NONE(설정 안됨)인지 확인
+           if (user.getJob() == Job.NONE) {
+               // UriComponentsBuilder -> URL 뒤에 ?needJobSetup=true 를 안전하게 붙임
+               targetUrl = UriComponentsBuilder.fromUriString(targetUrl)
+                       .queryParam("needJobSetup", "true")
+                       .build().toUriString();
+               
+               log.info("직무 미설정 사용자 감지. 파라미터 추가: {}", targetUrl);
+           }else {
+        	   log.info("직무 설정 완료된 사용자입니다.");
+           }
+           
+           getRedirectStrategy().sendRedirect(request, response, targetUrl);
+           log.info("리다이렉트 완료 : {}", targetUrl);
 
        } catch (IOException e) {
            log.error("리다이렉트 중 IO 오류 발생: {}", e.getMessage(), e);

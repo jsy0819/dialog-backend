@@ -31,6 +31,7 @@ import com.dialog.security.oauth2.SocialUserInfoFactory;
 import com.dialog.token.domain.RefreshTokenDto;
 import com.dialog.token.service.RefreshTokenServiceImpl;
 import com.dialog.user.domain.ForgotPasswordRequestDTO;
+import com.dialog.user.domain.Job;
 import com.dialog.user.domain.LoginDto;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.domain.MeetUserDto;
@@ -86,7 +87,7 @@ public class MeetUserController {
         // Refresh Token 생성 및 반환할 DTO 생성
         RefreshTokenDto refreshTokenDto = refreshTokenService.createRefreshTokenDto(user);
 
-        // 2. HTTP 응답 설정 (CookieUtill 클래스에서 쿠키 처리)
+        // HTTP 응답 설정 (CookieUtill 클래스에서 쿠키 처리)
         response.addCookie(cookieUtil.createAccessTokenCookie(accessToken));
         response.addCookie(cookieUtil.createRefreshTokenCookie(refreshTokenDto.getRefreshToken()));
 
@@ -97,12 +98,15 @@ public class MeetUserController {
         	// 아이디 기억하기는 js 에서 접근해도 위험이 적어 HttpOnly=false 로 설정해줌
             response.addCookie(cookieUtil.deleteCookie("savedEmail", false));
         }
-
+        // 직무가 None 인지 확인
+        boolean needJobSetup = (user.getJob() == Job.NONE);
+        
         // 로그인 성공 정보와 토큰, 사용자 정보 등을 JSON 응답의 형태로 반환
         return ResponseEntity.ok(Map.of(
             "success", true,
             "message", "로그인 성공",
             "refreshTokenExpiresAt", refreshTokenDto.getExpiresAt(),
+            "needJobSetup", needJobSetup,
             "user", Map.of(
                 "name", user.getName(),
                 "email", user.getEmail(),
