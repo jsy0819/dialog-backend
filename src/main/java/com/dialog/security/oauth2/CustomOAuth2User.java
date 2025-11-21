@@ -6,6 +6,7 @@ import java.util.Map;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 
+import com.dialog.user.domain.Job;
 import com.dialog.user.domain.MeetUser;
 
 
@@ -22,6 +23,10 @@ public class CustomOAuth2User implements OAuth2User {
 	private final String nameAttributeKey;
 	// 내부 도메인 사용자 엔티티
 	private final MeetUser meetuser;
+	
+	public boolean isJobEmpty() {
+        return this.meetuser.getJob() == Job.NONE;
+    }
 
 	// 생성자: 외부 OAuth2 정보와 내부 사용자 엔티티를 함께 묶음
 	public CustomOAuth2User(Collection<? extends GrantedAuthority> authorities, Map<String, Object> attributes,
