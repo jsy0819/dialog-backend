@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 
+import com.dialog.calendarevent.repository.CalendarEventRepository;
 import com.dialog.exception.ResourceNotFoundException;
 import com.dialog.exception.UserNotFoundException;
 import com.dialog.meeting.repository.MeetingRepository;
@@ -30,6 +31,7 @@ public class AdminService {
 	private final ParticipantRepository participantRepository;
 	private final MeetingRepository meetingRepository;
 	private final RefreshTokenRepository refreshTokenRepository;
+	private final CalendarEventRepository calendarEventRepository;
 	
 	@Transactional(readOnly = true)
 	public List<AdminResponse> getAllUsers() {
@@ -136,6 +138,7 @@ public class AdminService {
 	    }
 	  
     	participantRepository.deleteByMeetingId(meetingId); 
+    	calendarEventRepository.deleteByMeetingId(meetingId);
     	meetingRepository.deleteById(meetingId);
 	}
 }
