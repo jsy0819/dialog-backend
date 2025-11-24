@@ -44,7 +44,7 @@ public class Transcript {
     @Column(name = "speaker_id", length = 50, nullable = false)
     private String speakerId;
 
-    /** 사용자가 매핑한 최종 화자명 (예: 김민준) */
+    /** 사용자가 매핑한 최종 화자명 (예: 가나디) */
     @Column(name = "speaker_name", length = 100)
     private String speakerName;
 
@@ -97,6 +97,10 @@ public class Transcript {
     public void updateSpeaker(String newSpeakerId, String newSpeakerName) {
         this.speakerId = newSpeakerId;
         this.speakerName = newSpeakerName;
+    }
+    
+    public void updateSequenceOrder(Integer sequenceOrder) {
+        this.sequenceOrder = sequenceOrder;
     }
 
     /** 삭제 */

@@ -84,6 +84,18 @@ public class TranscriptController {
             return ResponseEntity.notFound().build();
         }
     }
+    
+	// Transcript 복구
+    @PatchMapping("/{transcriptId}/restore")
+    public ResponseEntity<TranscriptResponseDto> restoreTranscript(@PathVariable("transcriptId") Long transcriptId) {
+        try {
+            TranscriptResponseDto response = transcriptService.restoreTranscript(transcriptId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Transcript 복구 실패: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
 
     // Meeting의 모든 Transcript 삭제
     @DeleteMapping("/meeting/{meetingId}")
@@ -93,6 +105,21 @@ public class TranscriptController {
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
             log.error("Meeting Transcript 일괄 삭제 실패: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    // 화자 매핑 업데이트 (특정 화자 ID를 가진 모든 발화의 이름 변경)
+    @PatchMapping("/meeting/{meetingId}/speaker")
+    public ResponseEntity<Void> updateSpeakerMapping(
+            @PathVariable("meetingId") Long meetingId,
+            @RequestParam("speakerId") String speakerId,
+            @RequestParam("newName") String newName) {
+        try {
+            transcriptService.updateSpeakerMapping(meetingId, speakerId, newName);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("화자 매핑 업데이트 실패: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

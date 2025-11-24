@@ -1,6 +1,9 @@
 package com.dialog.transcript.domain;
 
 import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -20,7 +23,10 @@ public class TranscriptResponseDto {
     private Long endTime;
     private Integer sequenceOrder;
     private String timeLabel;  // 추가: 프론트 표시용
+    
+    @JsonProperty("isDeleted") 
     private boolean isDeleted;  // 추가: 삭제 여부
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     

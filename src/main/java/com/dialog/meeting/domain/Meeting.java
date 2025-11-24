@@ -90,8 +90,9 @@ public class Meeting {
 
 	// --- 연관 관계 ---
 
-	@OneToMany(mappedBy = "meeting", fetch = FetchType.LAZY)
-	private List<Participant> participants;
+	@OneToMany(mappedBy = "meeting", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+	@Builder.Default // 빌더 패턴 사용 시 초기화 유지
+	private List<Participant> participants = new ArrayList<>();
 
 	@OneToOne(mappedBy = "meeting", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
 	private Recording recording;

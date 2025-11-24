@@ -141,4 +141,21 @@ public class TranscriptService {
     public void deleteTranscriptsByMeetingId(Long meetingId) {
         transcriptRepository.deleteByMeetingId(meetingId);
     }
+    
+    // 특정 회의의 특정 화자(ID)에 해당하는 모든 발화의 speakerName 변경
+    @Transactional
+    public void updateSpeakerMapping(Long meetingId, String originalSpeakerId, String newSpeakerName) {
+        // 1. 해당 회의에서 특정 speakerId를 가진 모든 발화 조회
+        List<Transcript> transcripts = transcriptRepository.findByMeetingIdAndSpeakerId(meetingId, originalSpeakerId);
+
+        if (transcripts.isEmpty()) {
+            // 로그가 없더라도 에러는 아님 (무시)
+            return;
+        }
+
+        // 2. 모든 엔티티의 이름 변경 (Dirty Checking으로 자동 Update 쿼리 발생)
+        for (Transcript t : transcripts) {
+            t.updateSpeaker(t.getSpeakerId(), newSpeakerName);
+        }
+    }
 }

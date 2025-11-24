@@ -100,10 +100,13 @@ public class MeetingCreateResponseDto {
             this.summary = result.getSummary();
             
             if (result.getImportance() != null) {
-                this.importance = new ImportanceData(result.getImportance().name(), ""); 
-            } else {
-                this.importance = new ImportanceData("MEDIUM", "");
-            }
+            	this.importance = new ImportanceData(
+                        result.getImportance().name(), 
+                        result.getImportanceReason() // Entity에 getter가 있어야 함
+                    ); 
+                } else {
+                    this.importance = new ImportanceData("MEDIUM", "");
+                }
 
             // 키워드 (MeetingResultKeyword)
             this.keywords = result.getKeywords().stream()
