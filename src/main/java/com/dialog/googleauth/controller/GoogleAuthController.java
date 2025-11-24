@@ -41,7 +41,8 @@ public class GoogleAuthController {
         } catch (UserNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "내부 서버 오류"));
+        	e.printStackTrace(); 
+            return ResponseEntity.status(500).body(Map.of("error", "서버 오류: " + e.getMessage()));
         }
     }
 

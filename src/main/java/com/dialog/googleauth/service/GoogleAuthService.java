@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,37 +33,35 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GoogleAuthService {
 
-    private final GoogleAuthDTO googleAuthDTO;
     private final MeetUserRepository meetUserRepository;
     private final UserSocialTokenRepository tokenRepository;
 
-    private GoogleAuthDTO.ProviderConfig getGoogleConfig() {
-        if (googleAuthDTO == null || googleAuthDTO.getProvider() == null) {
-            throw new IllegalStateException("GoogleAuthDTO 설정이 로드되지 않았습니다. (YML 확인 필요)");
-        }
-        GoogleAuthDTO.ProviderConfig config = googleAuthDTO.getProvider().get("google");
-        if (config == null) {
-            throw new IllegalStateException("YML 설정 파일에 'oauth2.provider.google' 설정이 없습니다.");
-        }
-        return config;
-    }
+    @Value("${google.client.id}")
+    private String clientId;
 
-    public String generateAuthUrl(Long userId) { // 2. Long userId 인자 추가
+    @Value("${google.client.secret}")
+    private String clientSecret;
 
-        GoogleAuthDTO.ProviderConfig config = getGoogleConfig();
-        String state = Base64.getUrlEncoder()
-        		.withoutPadding()
-        		.encodeToString(userId.toString().getBytes());
+    @Value("${google.redirect.uri}")
+    private String redirectUri;
 
-        String authUrl = UriComponentsBuilder.fromUriString(config.getAuthUri())
-            .queryParam("client_id", config.getClientId())
-            .queryParam("redirect_uri", config.getRedirectUri()) // 4. config 객체 사용
-            .queryParam("scope", config.getScope()) // 4. config 객체 사용
+    private static final String SCOPE = "https://www.googleapis.com/auth/calendar.events";
+
+public String generateAuthUrl(Long userId) {
+        // userId를 Base64로 인코딩하여 state 값 생성 (보안 및 사용자 식별용)
+        String state = Base64.getUrlEncoder().withoutPadding().encodeToString(userId.toString().getBytes());
+
+        String authUrl = UriComponentsBuilder.fromUriString("https://accounts.google.com/o/oauth2/v2/auth")
+            .queryParam("client_id", clientId)     // @Value로 주입받은 값 사용
+            .queryParam("redirect_uri", redirectUri) // @Value로 주입받은 값 사용
+            .queryParam("scope", SCOPE)
             .queryParam("response_type", "code")
             .queryParam("access_type", "offline")
-            .queryParam("state", state) // 5. state 파라미터 추가
-            .queryParam("prompt", "consent")
+            .queryParam("state", state)
+            .queryParam("prompt", "consent") // 리프레시 토큰을 위해 필수
             .build().toUriString();
+            
+        log.info("생성된 구글 연동 URL: {}", authUrl); // 디버깅용 로그
         return authUrl;
     }
 
@@ -69,7 +69,6 @@ public class GoogleAuthService {
         if (userDetails == null) {
             throw new IllegalArgumentException("인증 정보가 null입니다.");
         }
-
         if (userDetails instanceof CustomOAuth2User customOAuth2User) {
             return customOAuth2User.getMeetuser().getId();
         }
@@ -78,26 +77,28 @@ public class GoogleAuthService {
                 .orElseThrow(() -> new UserNotFoundException("DB에서 사용자를 찾을 수 없습니다: " + email));
         return user.getId();
     }
+
     @Transactional
     public void exchangeCodeAndSaveToken(Long userId, String code) {
-
-        GoogleAuthDTO.ProviderConfig config = getGoogleConfig();
-
         try {
-        	GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                    new NetHttpTransport(), JacksonFactory.getDefaultInstance(),
-                    config.getClientId(), config.getClientSecret(),
-                    Arrays.asList(config.getScope().split(" ")))
+            // 구글 인증 흐름 생성
+            GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+                    new NetHttpTransport(), 
+                    JacksonFactory.getDefaultInstance(),
+                    clientId,      // @Value 값
+                    clientSecret,  // @Value 값
+                    Collections.singletonList(SCOPE))
                     .setAccessType("offline")
                     .build();
 
+            // 인증 코드로 토큰 교환 요청
             GoogleTokenResponse response = flow.newTokenRequest(code)
-                    .setRedirectUri(config.getRedirectUri())
+                    .setRedirectUri(redirectUri) // @Value 값
                     .setGrantType("authorization_code")
                     .execute();
 
             String accessToken = response.getAccessToken();
-            String refreshToken = response.getRefreshToken(); // null일 수 있음
+            String refreshToken = response.getRefreshToken(); 
             Long expiresInSeconds = response.getExpiresInSeconds();
             LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(expiresInSeconds);
 
@@ -106,7 +107,6 @@ public class GoogleAuthService {
             
             UserSocialToken token = tokenRepository.findByUser_IdAndProvider(userId, "google")
                     .orElseGet(() -> {
-                        // 신규 생성
                         UserSocialToken newToken = new UserSocialToken();
                         newToken.setUser(user);
                         newToken.setProvider("google");
@@ -116,17 +116,18 @@ public class GoogleAuthService {
             if (refreshToken != null) {
                 token.setRefreshToken(refreshToken);
             } else if (token.getRefreshToken() == null) {
-                log.warn("Refresh Token이 발급되지 않았습니다. (userId={})", userId);
+                log.warn("Refresh Token이 발급되지 않았습니다. (이미 연동된 상태일 수 있음) userId={}", userId);
             }
 
             token.setAccessToken(accessToken);
             token.setExpiresAt(expiresAt);
             
-            tokenRepository.save(token); // save는 insert/update 모두 처리
+            tokenRepository.save(token);
+            log.info("구글 캘린더 연동 성공 (UserId: {})", userId);
 
         } catch (IOException e) {
             log.error("구글 토큰 교환 실패", e);
-            throw new GoogleTokenExchangeException("Google 토큰 통신 오류", e);
+            throw new GoogleTokenExchangeException("Google 토큰 통신 오류: " + e.getMessage(), e);
         }
     }
 }
