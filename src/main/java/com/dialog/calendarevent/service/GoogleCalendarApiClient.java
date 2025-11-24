@@ -150,9 +150,18 @@ public class GoogleCalendarApiClient {
 					.parse(googleEvent.getStart().getDateTime().toString(), DateTimeFormatter.ISO_DATE_TIME).toString();
 		}
 
-		return CalendarEventResponse.builder().id(null) // Google 이벤트는 우리 DB ID가 없음
-				.userId(null).title(googleEvent.getSummary()).eventDate(eventDateStr).time(null).eventType("MEETING")
-				.isImportant(false).sourceId(googleEvent.getId()).googleEventId(googleEvent.getId()).createdAt(null)
+		return CalendarEventResponse.builder()
+				.id(null) // Google 이벤트는 우리 DB ID가 없음
+				.userId(null)
+				.title(googleEvent.getSummary())
+				.eventDate(eventDateStr)
+				.time(null)
+				.eventType("MEETING")
+				.isImportant(false)
+				.sourceId(googleEvent.getId())
+				.googleEventId(googleEvent.getId())
+				.createdAt(null)
+				.status(googleEvent.getStatus())
 				.build();
 	}
 
@@ -228,9 +237,9 @@ public class GoogleCalendarApiClient {
 		//final String GOOGLE_EVENT_DELETE_URL = GOOGLE_CALENDAR_URL + "/{eventId}";
 		String deleteUrl = this.googleCalendarUrl + "/{eventId}";
 		try {
-			webClient.delete() // 2. [핵심] .delete() 메서드 사용
-					.uri(this.googleCalendarUrl, calendarId, eventId) // 3. URL 변수 매핑
-					.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken) // 4. 헤더 설정
+			webClient.delete() // delete() 메서드 사용
+					.uri(deleteUrl, calendarId, eventId) // URL 변수 매핑
+					.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken) // 헤더 설정
 					.retrieve().onStatus(HttpStatusCode::isError, response -> {
 						log.error("Google Calendar 이벤트 삭제(Delete) 실패. Status: {}", response.statusCode());
 
@@ -245,7 +254,7 @@ public class GoogleCalendarApiClient {
 
 		} catch (Exception e) {
 			log.error("Google API 통신 중 일정 삭제(Delete) 예외 발생", e);
-			throw new GoogleOAuthException("일정 삭제(Delete) API 통신 실패");
+			throw new RuntimeException(e.getMessage(), e);
 		}
 	}
 }
