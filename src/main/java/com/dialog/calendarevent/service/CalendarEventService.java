@@ -48,56 +48,69 @@ public class CalendarEventService {
 
 	public List<CalendarEventResponse> getEventsByDateRange(String userEmail, LocalDate startDate, LocalDate endDate) {
 
-		MeetUser meetUser = meetUserRepository.findByEmail(userEmail)
-				.orElseThrow(() -> new ResourceNotFoundException("MeetUser를 찾을 수 없습니다: " + userEmail));
+	    // 사용자 검증
+	    MeetUser meetUser = meetUserRepository.findByEmail(userEmail)
+	            .orElseThrow(() -> new ResourceNotFoundException("MeetUser를 찾을 수 없습니다: " + userEmail));
 
-		Long userId = meetUser.getId();
-		String accessToken = tokenManagerService.getToken(userEmail, "google");
+	    Long userId = meetUser.getId();
+	    String accessToken = tokenManagerService.getToken(userEmail, "google");
 
-		// --- 1. 로컬 DB 'Task' 이벤트 조회 (CalendarEvent) ---
-		List<CalendarEvent> localEvents = calendarEventRepository.findByUserIdAndEventDateBetween(userId, startDate,
-				endDate);
+	    // 로컬 DB 조회 (Task 및 로컬 이벤트)
+	    // List는 나중에 구글 이벤트를 추가해야 하므로 수정 가능한 ArrayList로 감싸는 것이 안전합니다.
+	    List<CalendarEvent> localEvents = calendarEventRepository.findByUserIdAndEventDateBetween(userId, startDate, endDate);
+	    
+	    List<CalendarEventResponse> responseEvents = localEvents.stream()
+	            .map(CalendarEventResponse::from)
+	            .collect(Collectors.toList());
 
-		List<CalendarEventResponse> responseEvents = localEvents.stream()
-				.map(CalendarEventResponse::from)
-				.collect(Collectors.toList());
-		LocalDateTime startDateTime = startDate.atStartOfDay();
-		LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+	    // 토큰이 없으면 로컬 데이터만 반환
+	    if (accessToken == null || accessToken.isEmpty()) {
+	        log.warn("Google AccessToken이 없어 로컬 데이터만 반환합니다.");
+	        return responseEvents;
+	    }
 
-		List<Meeting> dbMeetings = meetingRepository.findAllByScheduledAtBetween(startDateTime, endDateTime);
+	    try {
+	        // 구글 캘린더 API 호출
+	        List<CalendarEventResponse> googleEvents = googleCalendarApiClient.getEvents(accessToken, "primary",
+	                startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay());
+	        
+	        // 로컬 DB에 이미 저장된 구글 이벤트 ID를 매핑 (중복 방지용)
+	        Map<String, CalendarEventResponse> localGoogleMap = responseEvents.stream()
+	                .filter(e -> e.getGoogleEventId() != null)
+	                .collect(Collectors.toMap(CalendarEventResponse::getGoogleEventId, e -> e, (oldValue, newValue) -> oldValue));
 
+	        // 구글 이벤트 병합 및 필터링
+	        for (CalendarEventResponse gEvent : googleEvents) {
+	            
+	            // 이미 로컬 DB에 존재하는 이벤트는 건너뜀 (로컬 데이터 우선)
+	            if (localGoogleMap.containsKey(gEvent.getGoogleEventId())) {
+	                continue;
+	            }
 
-		if (accessToken == null || accessToken.isEmpty()) {
-			log.warn("Google AccessToken이 없어 로컬 데이터만 반환합니다.");
-			return responseEvents;
-		}
+	            // 삭제된(cancelled) 이벤트 필터링 (좀비 데이터 방지 핵심)
+	            // DTO에 'private String status;' 필드가 있어야 동작합니다.
+	            if (gEvent.getStatus() != null && "cancelled".equalsIgnoreCase(gEvent.getStatus())) {
+	                continue;
+	            }
+	            
+	            // 검증 통과된 구글 전용 일정만 리스트에 추가
+	            responseEvents.add(gEvent); 
+	        }
+	        
+	        return responseEvents;
 
-		try {
+	    } catch (Exception e) {
+	        String errorMessage = (e.getMessage() != null) ? e.getMessage() : "";
 
-			List<CalendarEventResponse> googleEvents = googleCalendarApiClient.getEvents(accessToken, "primary",
-					startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay());
-			
-			Map<String, CalendarEventResponse> localGoogleMap = responseEvents.stream()
-                    .filter(e -> e.getGoogleEventId() != null)
-                    .collect(Collectors.toMap(CalendarEventResponse::getGoogleEventId, e -> e));
-
-			for (CalendarEventResponse gEvent : googleEvents) {
-                if (!localGoogleMap.containsKey(gEvent.getGoogleEventId())) {
-                    responseEvents.add(gEvent); // 로컬에 없는 새 구글 일정만 추가
-                }
-            }
-			return responseEvents;
-
-		} catch (Exception e) {
-			String errorMessage = (e.getMessage() != null) ? e.getMessage() : "";
-
-			if (errorMessage.contains("invalid_grant") || errorMessage.contains("토큰 갱신 실패")
-					|| errorMessage.contains("401")) {
-				throw new GoogleOAuthException("Google 토큰이 만료되었거나 무효화되었습니다. 재연동이 필요합니다.");
-			}
-			log.error("Google Calendar API 조회 중 심각한 오류 발생", e);
-			throw new RuntimeException("Google Calendar API 조회 중 오류가 발생했습니다.", e);
-		}
+	        // 토큰 만료 관련 에러 처리
+	        if (errorMessage.contains("invalid_grant") || errorMessage.contains("토큰 갱신 실패") || errorMessage.contains("401")) {
+	            throw new GoogleOAuthException("Google 토큰이 만료되었거나 무효화되었습니다. 재연동이 필요합니다.");
+	        }
+	        
+	        // 그 외 API 오류는 로그를 남기고 런타임 예외 발생
+	        log.error("Google Calendar API 조회 중 심각한 오류 발생", e);
+	        throw new RuntimeException("Google Calendar API 조회 중 오류가 발생했습니다.", e);
+	    }
 	}
 
 	@Transactional
@@ -206,26 +219,53 @@ public class CalendarEventService {
 
 	@Transactional
 	public void deleteCalendarEvent(String userEmail, String eventId) {
-		String accessToken = tokenManagerService.getToken(userEmail, "google");
-		if (accessToken == null || accessToken.isEmpty()) {
-			throw new GoogleOAuthException("Google Access Token이 유효하지 않습니다.");
-		}
+	    String accessToken = tokenManagerService.getToken(userEmail, "google");
 
-		MeetUser user = meetUserRepository.findByEmail(userEmail)
-				.orElseThrow(() -> new ResourceNotFoundException("사용자를 찾을 수 없습니다: " + userEmail));
+	    MeetUser user = meetUserRepository.findByEmail(userEmail)
+	            .orElseThrow(() -> new ResourceNotFoundException("사용자를 찾을 수 없습니다: " + userEmail));
 
-		CalendarEvent localEvent = calendarEventRepository.findByGoogleEventIdAndUserId(eventId, user.getId())
-				.orElseThrow(() -> new ResourceNotFoundException("로컬 이벤트를 찾을 수 없습니다: " + eventId));
+	    // 로컬 이벤트 조회
+	    CalendarEvent localEvent = null;
+	    Optional<CalendarEvent> byGoogleId = calendarEventRepository.findByGoogleEventIdAndUserId(eventId, user.getId());
 
-		try {
-			googleCalendarApiClient.deleteEvent(accessToken, "primary", eventId);
-		} catch (Exception e) {
-			if (e.getMessage() != null && e.getMessage().contains("invalid_grant")) {
-				throw new GoogleOAuthException("Google 토큰 갱신 실패(invalid_grant)");
-			}
-			log.warn("Google API 삭제 실패 (로컬만 삭제 진행): " + e.getMessage());
-		}
-		calendarEventRepository.delete(localEvent);
+	    if (byGoogleId.isPresent()) {
+	        localEvent = byGoogleId.get();
+	    } else {
+	        try {
+	            Long dbId = Long.parseLong(eventId);
+	            localEvent = calendarEventRepository.findById(dbId)
+	                    .filter(e -> e.getUserId().equals(user.getId()))
+	                    .orElseThrow(() -> new ResourceNotFoundException("삭제할 이벤트를 찾을 수 없습니다. ID: " + eventId));
+	        } catch (NumberFormatException nfe) {
+	            throw new ResourceNotFoundException("유효하지 않은 이벤트 ID입니다: " + eventId);
+	        }
+	    }
+
+	    // 구글 API 삭제 요청
+	    if (localEvent.getGoogleEventId() != null && accessToken != null) {
+	        try {
+	            googleCalendarApiClient.deleteEvent(accessToken, "primary", localEvent.getGoogleEventId());
+	        } catch (Exception e) {
+	            // 에러 메시지 분석
+	            String errorMsg = (e.getMessage() != null) ? e.getMessage() : "";
+	            
+	            // 로그에서 확인된 "404 NOT_FOUND" 메시지를 체크합니다.
+	            if (errorMsg.contains("404") || errorMsg.contains("NOT_FOUND")) {
+	                log.info("Google 캘린더에 이미 없는 이벤트입니다(404). 로컬 삭제를 진행합니다.");
+	            } 
+	            else if (errorMsg.contains("invalid_grant")) {
+	                throw new GoogleOAuthException("Google 토큰이 만료되었습니다.");
+	            } 
+	            else {
+	                // 404가 아닌 다른 에러(500 등)는 로그만 남기고 로컬 삭제 진행 (좀비 방지)
+	                log.warn("Google API 삭제 요청 중 오류 발생 (로컬 삭제는 진행): {}", errorMsg);
+	            }
+	        }
+	    }
+
+	    // 로컬 DB 삭제 
+	    calendarEventRepository.delete(localEvent);
+	    log.info("로컬 이벤트 삭제 완료: {}", eventId);
 	}
 
 	@Transactional

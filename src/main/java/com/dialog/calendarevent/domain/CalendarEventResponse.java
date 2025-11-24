@@ -36,6 +36,8 @@ public class CalendarEventResponse {
 	private String sourceId;
 	private String googleEventId;
 	private LocalDateTime createdAt;
+	
+	private String status;
 
 	public static CalendarEventResponse from(CalendarEvent entity) {
 		if (entity == null) {
