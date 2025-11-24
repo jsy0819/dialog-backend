@@ -13,26 +13,41 @@ import lombok.ToString;
 @Setter
 @NoArgsConstructor
 @ToString
-@JsonIgnoreProperties(ignoreUnknown = true) // 프론트에서 불필요한 필드가 와도 에러 안 나게 처리
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class MeetingUpdateResultDto {
 
 	private String title;
-	private String purpose;
-	private String agenda;
-	private String summary;
-
-	// 프론트엔드 JS 객체 구조: { level: "HIGH", reason: "..." }
-	private ImportanceData importance;
-	private List<KeywordDto> keywords;
-	private List<ActionItemDto> actionItems;
-	private List<TranscriptDto> transcripts;
+    private String purpose;
+    private String agenda;
+    private String summary;
+    private ImportanceData importance; // 중요도 객체
+    private List<ParticipantDto> participants; // 참석자 명단
+    private List<KeywordDto> keywords;
+    private List<ActionItemDto> actionItems;
+    private List<TranscriptDto> transcripts;
+    
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class ParticipantDto {
+        private String speakerId; // 원본 ID (예: Speaker 1)
+        private String name;      // 표시 이름 (예: 가나디)
+    }
 
 	@Getter
 	@Setter
 	@NoArgsConstructor
 	public static class ImportanceData {
-		private String level; // HIGH, MEDIUM, LOW
+		private String level;
 		private String reason;
+	}
+
+	@Getter
+	@Setter
+	@NoArgsConstructor
+	public static class KeywordDto {
+		private String text;
+		private String source;
 	}
 
 	@Getter
@@ -40,27 +55,25 @@ public class MeetingUpdateResultDto {
 	@NoArgsConstructor
 	public static class ActionItemDto {
 		private String task;
-		private String assignee;	// 이름(String)으로 들어옴 -> DB조회 필요
-		private String dueDate;		// "2025-10-15" (String) -> LocalDateTime 변환 필요
-		private String source;		// "USER" or "AI"
+		private String assignee;
+		private String dueDate;
+		private String source;
+		// 완료 여부 추가 (프론트엔드 isCompleted 반영)
+		private Boolean isCompleted;
 	}
-	
-	// 키워드 정보를 받을 내부 DTO
-    @Getter @Setter @NoArgsConstructor
-    public static class KeywordDto {
-        private String text;   // 키워드 내용 (예: "백엔드")
-        private String source; // 출처 (예: "AI", "USER")
-    }
-    
-    // 발화 로그 내부 DTO
-    @Getter @Setter @NoArgsConstructor
-    public static class TranscriptDto {
-        private String speaker;     // speakerId (화자1, spk-1)
-        private String speakerName; // 실제 이름 (김철수)
-        private String time;        // "00:01:30"
-        private String text;
-        private Long startTime;
-        private Long endTime;
-        private Integer sequenceOrder;
-    }
+
+	@Getter
+	@Setter
+	@NoArgsConstructor
+	public static class TranscriptDto {
+		private Long id; // 기존 ID 유지
+		private String speaker; // 식별자 ID (예: Speaker 1)
+		private String speakerName; // 표시 이름 (예: 가나디)
+		private String text;
+		private Long startTime;
+		private Long endTime;
+		private Integer sequenceOrder;
+		// 삭제 여부를 받기 위한 필드 추가
+		private Boolean isDeleted;
+	}
 }

@@ -61,6 +61,10 @@ public class MeetingResult {
 	@Enumerated(EnumType.STRING)
 	@Column(name = "importance_level")
 	private ImportanceLevel importance;
+	
+	// 중요도 사유 컬럼
+	@Column(name = "importance_reason", columnDefinition = "TEXT")
+	private String importanceReason;
 
 	// ActionItem은 결과에 종속됨 (Result 삭제 시 함께 삭제)
 	@OneToMany(mappedBy = "meetingResult", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -81,11 +85,12 @@ public class MeetingResult {
 	private LocalDateTime updatedAt;
 
 	// --- 편의 메서드 ---
-	public void updateSummaryInfo(String purpose, String agenda, String summary, ImportanceLevel importance) {
-		this.purpose = purpose;
-		this.agenda = agenda;
-		this.summary = summary;
-		this.importance = importance;
+	public void updateSummaryInfo(String purpose, String agenda, String summary, ImportanceLevel importance, String importanceReason) {
+	    this.purpose = purpose;
+	    this.agenda = agenda;
+	    this.summary = summary;
+	    this.importance = importance;
+	    this.importanceReason = importanceReason;
 	}
 
 	public void setMeeting(Meeting meeting) {
