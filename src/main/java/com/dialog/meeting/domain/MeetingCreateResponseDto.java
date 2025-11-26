@@ -29,8 +29,9 @@ public class MeetingCreateResponseDto {
     private String summary;
     private ImportanceData importance;
     private List<ActionItemDto> actionItems;
+    private Integer durationSeconds;
     
-	// --- 내부 DTO 클래스들 ---
+	  // --- 내부 DTO 클래스들 ---
     @Getter
     @Setter
     @NoArgsConstructor
@@ -80,6 +81,12 @@ public class MeetingCreateResponseDto {
         this.status = meeting.getStatus();
         this.scheduledAt = meeting.getScheduledAt();
         
+        if (meeting.getRecording() != null) {
+            this.durationSeconds = meeting.getRecording().getDurationSeconds();
+        } else {
+            this.durationSeconds = 0;
+        }
+        
         if (meeting.getParticipants() != null) {
             this.participants = meeting.getParticipants().stream()
                     .map(p -> p.getName()) 
@@ -100,9 +107,9 @@ public class MeetingCreateResponseDto {
             this.summary = result.getSummary();
             
             if (result.getImportance() != null) {
-            	this.importance = new ImportanceData(
+              this.importance = new ImportanceData(
                         result.getImportance().name(), 
-                        result.getImportanceReason() // Entity에 getter가 있어야 함
+                        result.getImportanceReason() 
                     ); 
                 } else {
                     this.importance = new ImportanceData("MEDIUM", "");
@@ -121,9 +128,9 @@ public class MeetingCreateResponseDto {
             // 결과가 없을 때 (기본값)
             this.keywords = new ArrayList<>();
             if (meeting.getHighlightKeywords() != null && !meeting.getHighlightKeywords().isEmpty()) { // 빈 문자열 체크
-                 for(String s : meeting.getHighlightKeywords().split(",")) {
+                for(String s : meeting.getHighlightKeywords().split(",")) {
                      this.keywords.add(new KeywordDto(s.trim(), "USER")); // 공백 제거 및 USER 고정
-                 }
+                }
             }
             this.actionItems = new ArrayList<>();
         }
