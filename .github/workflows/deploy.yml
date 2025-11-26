@@ -1,0 +1,69 @@
+name: CI/CD Backend to EC2
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # CI: 빌드 검증
+  ci:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      
+      - name: Verify Required Files
+        run: |
+          test -f build.gradle || { echo "build.gradle not found"; exit 1; }
+          test -f Dockerfile || { echo "Dockerfile not found"; exit 1; }
+          test -d src/main/java || { echo "src/main/java not found"; exit 1; }
+          test -d src/main/resources || { echo "src/main/resources not found"; exit 1; }
+      
+      - name: Gradle Build (Skip Tests)
+        run: ./gradlew build -x test
+      
+      - name: Docker Build Test
+        run: |
+          docker build -t dialog-backend-test .
+
+  # CD: 배포 (main 브랜치만)
+  cd:
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy Backend Files
+        run: |
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} 'mkdir -p /opt/dialog/dialog-backend'
+          scp -i ~/.ssh/id_rsa -r ./* ubuntu@${{ secrets.EC2_HOST }}:/opt/dialog/dialog-backend/
+
+      - name: Rebuild Backend Container
+        run: |
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
+            cd /opt/dialog
+            docker-compose up -d --build --no-deps backend
+            docker-compose ps
+          '
