@@ -3,7 +3,6 @@ package com.dialog.meeting.controller;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +23,6 @@ import com.dialog.meeting.domain.MeetingCreateResponseDto;
 import com.dialog.meeting.domain.MeetingFinishRequestDto;
 import com.dialog.meeting.domain.MeetingUpdateResultDto;
 import com.dialog.meeting.service.MeetingService;
-import com.dialog.meetingresult.domain.MeetingResult;
 import com.dialog.security.oauth2.CustomOAuth2User;
 import com.dialog.user.service.CustomUserDetails;
 
@@ -127,11 +125,29 @@ public class MeetingController {
 	// PATCH /api/meetings/{meetingId}
 	@PatchMapping("/{meetingId}")
 	public ResponseEntity<?> updateMeetingResult(@PathVariable("meetingId") Long meetingId,
-			@RequestBody MeetingUpdateResultDto updateDto) {
+			@RequestBody MeetingUpdateResultDto updateDto,
+			Authentication authentication) { // Authentication 추가
 		try {
 			log.info("회의 결과 업데이트 요청 - ID: {}, DTO: {}", meetingId, updateDto);
 
-			meetingService.updateMeetingResult(meetingId, updateDto);
+			// 인증 정보 확인 및 사용자 ID 추출
+			if (authentication == null) {
+				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("로그인이 필요합니다.");
+			}
+
+			Object principal = authentication.getPrincipal();
+			Long currentUserId;
+
+			if (principal instanceof CustomOAuth2User) {
+				currentUserId = ((CustomOAuth2User) principal).getMeetuser().getId();
+			} else if (principal instanceof CustomUserDetails) {
+				currentUserId = ((CustomUserDetails) principal).getId();
+			} else {
+				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("잘못된 인증 정보입니다.");
+			}
+
+			// 서비스에 userId도 함께 전달
+			meetingService.updateMeetingResult(meetingId, updateDto, currentUserId);
 
 			return ResponseEntity.ok().body("회의 결과가 성공적으로 저장되었습니다.");
 
@@ -167,26 +183,14 @@ public class MeetingController {
         try {
             log.info("AI 요약 생성 요청 - meetingId: {}", meetingId);
             
-            // 1. 서비스가 반환한 결과 받기 (반환 타입 변경됨)
-            MeetingResult result = meetingService.generateAISummary(meetingId);
+            // 1. 서비스 호출 (이제 DB 저장을 안 하고 Map만 리턴함)
+            Map<String, Object> resultData = meetingService.generateAISummary(meetingId);
             
-            // 2. 프론트엔드가 기대하는 JSON 구조 생성 ("data.summary.purpose" 형태로 접근함)
-            Map<String, Object> summaryData = new HashMap<>();
-            summaryData.put("purpose", result.getPurpose());
-            summaryData.put("agenda", result.getAgenda());
-            summaryData.put("overallSummary", result.getSummary()); // DB 컬럼명은 summary지만 프론트엔드 변수명 확인 필요
-            summaryData.put("importance", result.getImportance());
-
-            // 키워드 리스트 추출 (키워드 엔티티 -> 문자열 리스트)
-            List<String> keywords = result.getKeywords().stream()
-                .map(k -> k.getKeyword().getName())
-                .collect(Collectors.toList());
-            summaryData.put("keywords", keywords);
-
-            // 3. 최종 응답 맵핑
+            // 2. 프론트엔드 응답 구조 맞추기
+            // 서비스에서 이미 필요한 데이터를 Map으로 만들어서 줬으므로 구조만 맞춰서 반환
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("summary", summaryData); // 여기가 중요! 프론트에서 data.summary 로 접근함
+            response.put("summary", resultData); 
             
             return ResponseEntity.ok(response);
 
