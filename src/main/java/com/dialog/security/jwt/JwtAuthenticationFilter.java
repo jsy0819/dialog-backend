@@ -32,9 +32,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 요청 URI 로그
         log.debug("JWT 필터 실행 - URI: {}", request.getRequestURI());
 
+        // String uri = request.getRequestURI();
+        // // 재발급 엔드포인트에서는 토큰 없이도 통과되게 처리
+        // if ("/api/reissue".equals(uri)) {
+        //     chain.doFilter(request, response);
+        //     return;
+        // }
+
         String uri = request.getRequestURI();
-        // 재발급 엔드포인트에서는 토큰 없이도 통과되게 처리
-        if ("/api/reissue".equals(uri)) {
+        // 인증 불필요 경로는 JWT 필터 건너뛰기 (SecurityConfig permitAll과 일치)
+        // /api/auth/** 경로는 회원가입, 로그인 등 인증 없이 접근해야 하는 API
+        // SecurityConfig에서 permitAll 설정했지만, JWT 필터가 먼저 실행되므로 여기서도 예외 처리 필요
+        if (uri.startsWith("/api/auth/") || uri.equals("/api/reissue") || uri.startsWith("/public/")) {
             chain.doFilter(request, response);
             return;
         }
