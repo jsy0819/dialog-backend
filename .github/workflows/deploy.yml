@@ -79,5 +79,12 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /opt/dialog
+            # 기존 Backend 컨테이너 정리
+            docker-compose stop backend || true
+            docker-compose rm -f backend || true
+            # 최신 이미지 받기
             docker pull munwalk/dialog-backend:latest
-            docker-compose up -d backend
+            # Backend만 재시작 (의존성 무시)
+            docker-compose up -d --no-deps backend
+            # 상태 확인
+            docker ps | grep dialog-backend
