@@ -1,0 +1,74 @@
+server:
+  port: 8080
+
+spring:
+  profiles:
+    active: local
+
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  thymeleaf:
+    cache: false
+
+  # Spring Security OAuth2 설정 (로그인용)
+  # client-id와 secret은 도커 환경변수(SPRING_SECURITY_OAUTH2_...)에서 자동으로 주입됩니다.
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            user-name-attribute: sub
+            scope:
+              - profile
+              - email
+              - https://www.googleapis.com/auth/calendar.events
+          kakao:
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: [profile_nickname, account_email]
+            client-authentication-method: client_secret_post
+            client-name: Kakao
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: sub
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
+
+logging:
+  level:
+    com.dialog.security.jwt: DEBUG
+    com.dialog.security.oauth2: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    
+# OAuth2 리다이렉트 URI 설정
+#app:
+  #oauth2:
+    #fail-uri: http://localhost:8080/login?error=true
+    #success-uri: http://localhost:8080/dashboard
+    #redirect-uri: http://localhost:8080/oauth2/redirect
+    
+# 커스텀 구글 API 설정 (캘린더 연동용)
+google:
+  client:
+    id: ${GOOGLE_CLIENT_ID}          # docker-compose의 GOOGLE_CLIENT_ID 매핑
+    secret: ${GOOGLE_CLIENT_SECRET}  # docker-compose의 GOOGLE_CLIENT_SECRET 매핑
+  redirect:
+    uri: ${GOOGLE_REDIRECT_URI}      # docker-compose의 GOOGLE_REDIRECT_URI 매핑
+  api:
+    calendar-url: ${GOOGLE_API_CALENDAR_URL} # docker-compose의 GOOGLE_API_CALENDAR_URL 매핑
+app:
+  frontend-url: ${APP_FRONTEND_URL}  # docker-compose의 APP_FRONTEND_URL 매핑
