@@ -306,3 +306,18 @@ design-assets/
 *personal*
 *private*
 *confidential*
+
+# ===============================================
+# OAuth2 인증 로직 핵심 소스 코드 예외 처리
+# 민감 정보 패턴(*auth*)에 걸리지만, 필수 소스 코드이므로 강제 포함
+# ===============================================
+
+com/dialog/security/oauth2/
+!com/dialog/security/oauth2/
+src/main/java/com/dialog/token/
+!src/main/java/com/dialog/token/
+src/main/java/com/dialog/googleauth/
+!src/main/java/com/dialog/googleauth/
+src/main/java/com/dialog/exception/
+!src/main/java/com/dialog/exception/
+!src/main/java/com/dialog/email/service/
