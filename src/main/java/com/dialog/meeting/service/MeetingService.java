@@ -178,11 +178,22 @@ public class MeetingService {
 		meetingRepository.save(meeting);
 	}
 
-	// 5. 회의 결과(요약, 안건, 키워드, 액션아이템) 저장 및 업데이트
+	  // 5. 회의 결과(요약, 안건, 키워드, 액션아이템) 저장 및 업데이트
     @Transactional
-    public void updateMeetingResult(Long meetingId, MeetingUpdateResultDto updateDto) {
+    public void updateMeetingResult(Long meetingId, MeetingUpdateResultDto updateDto, Long currentUserId) {
         Meeting meeting = meetingRepository.findById(meetingId)
                 .orElseThrow(() -> new IllegalArgumentException("회의를 찾을 수 없습니다."));
+
+        // 요청자가 회의 호스트인지 확인 (URL 조작 방지)
+        if (!meeting.getHostUser().getId().equals(currentUserId)) {
+            throw new IllegalArgumentException("이 회의를 수정할 권한이 없습니다.");
+        }
+
+        // 저장 시 상태가 '예정(SCHEDULED)'이면 '완료(COMPLETED)'로 변경
+        // '녹음 -> 분석 -> 저장' 과정을 거쳤으므로 완료 처리
+        if (meeting.getStatus() == com.dialog.meeting.domain.Status.SCHEDULED) {
+            meeting.complete(); 
+        }
 
         // 1. 기본 정보 업데이트
         meeting.updateInfo(updateDto.getTitle(), null);
@@ -428,97 +439,70 @@ public class MeetingService {
         meetingRepository.delete(meeting);
     }
 
-    // AI 요약 생성 요청
-    @Transactional
-    public MeetingResult generateAISummary(Long meetingId) {
-        Meeting meeting = meetingRepository.findById(meetingId)
-            .orElseThrow(() -> new IllegalArgumentException("회의를 찾을 수 없습니다."));
+    // AI 요약 생성 요청 (DB 저장 X, Map 반환 O)
+    public Map<String, Object> generateAISummary(Long meetingId) {
+        
+        // Meeting 객체 조회 -> 존재 여부 확인으로 변경 (Unused Warning 해결)
+        if (!meetingRepository.existsById(meetingId)) {
+            throw new IllegalArgumentException("회의를 찾을 수 없습니다.");
+        }
 
-		List<Transcript> transcripts = transcriptRepository.findByMeetingIdOrderBySequenceOrder(meetingId);
-		if (transcripts.isEmpty()) {
-			throw new IllegalArgumentException("요약할 대화 내용이 없습니다.");
-		}
+        List<Transcript> transcripts = transcriptRepository.findByMeetingIdOrderBySequenceOrder(meetingId);
+        if (transcripts.isEmpty()) {
+            throw new IllegalArgumentException("요약할 대화 내용이 없습니다.");
+        }
 
-		// 요청 데이터 구성
-		Map<String, Object> requestPayload = new HashMap<>();
-		requestPayload.put("meeting_id", meetingId);
+        // 요청 데이터 구성
+        Map<String, Object> requestPayload = new HashMap<>();
+        requestPayload.put("meeting_id", meetingId);
 
-		List<Map<String, Object>> transcriptList = transcripts.stream().map(t -> {
-			Map<String, Object> item = new HashMap<>();
-			item.put("speaker", t.getSpeakerName() != null ? t.getSpeakerName() : t.getSpeakerId());
-			item.put("text", t.getText());
-			return item;
-		}).collect(Collectors.toList());
+        List<Map<String, Object>> transcriptList = transcripts.stream().map(t -> {
+            Map<String, Object> item = new HashMap<>();
+            item.put("speaker", t.getSpeakerName() != null ? t.getSpeakerName() : t.getSpeakerId());
+            item.put("text", t.getText());
+            return item;
+        }).collect(Collectors.toList());
 
-		requestPayload.put("transcripts", transcriptList);
+        requestPayload.put("transcripts", transcriptList);
 
-		String pythonEndpoint = fastApiBaseUrl + "/summary/generate";
+        String pythonEndpoint = fastApiBaseUrl + "/summary/generate";
 
-		try {
-			// DTO로 응답 받기
-			AISummaryResponse aiResponse = restTemplate.postForObject(pythonEndpoint, requestPayload,
-					AISummaryResponse.class);
+        try {
+            // AI 서버 호출
+            AISummaryResponse aiResponse = restTemplate.postForObject(pythonEndpoint, requestPayload,
+                    AISummaryResponse.class);
 
-			if (aiResponse != null && aiResponse.isSuccess() && aiResponse.getSummary() != null) {
-				// DTO 데이터 추출
-				AISummaryResponse.AISummaryData data = aiResponse.getSummary();
+            if (aiResponse != null && aiResponse.isSuccess() && aiResponse.getSummary() != null) {
+                
+                // 여기서 repository.save()를 하지 않습니다.
+                // 대신 결과 데이터를 Map에 담아 리턴합니다.
+                
+                AISummaryResponse.AISummaryData data = aiResponse.getSummary();
+                Map<String, Object> resultMap = new HashMap<>();
+                
+                resultMap.put("purpose", data.getPurpose());
+                resultMap.put("agenda", data.getAgenda());
+                resultMap.put("overallSummary", data.getOverallSummary());
+                
+                // 중요도 처리
+                ImportanceLevel level = (data.getImportance() != null) ? data.getImportance() : ImportanceLevel.MEDIUM;
+                resultMap.put("importance", level);
 
-				MeetingResult meetingResult = meeting.getMeetingResult();
-				if (meetingResult == null) {
-					meetingResult = MeetingResult.builder().meeting(meeting).build();
-					meetingResult = meetingResultRepository.save(meetingResult);
-				}
+                // 키워드 처리 (단순 문자열 리스트로 반환)
+                resultMap.put("keywords", (data.getKeywords() != null) ? data.getKeywords() : new ArrayList<>());
 
-				// 중요도 설정
-				ImportanceLevel level = (data.getImportance() != null) ? data.getImportance() : ImportanceLevel.MEDIUM;
+                return resultMap;
 
-				meetingResult.updateSummaryInfo(data.getPurpose(), data.getAgenda(), data.getOverallSummary(), level,
-						"");
-
-				// 키워드 저장 로직 (중복 방지 강화)
-				List<String> aiKeywords = data.getKeywords();
-				if (aiKeywords != null) {
-					// 1. 현재 DB에 저장된 키워드 이름들을 Set으로 추출 (빠른 검색 및 중복 방지)
-					Set<String> existingNames = new HashSet<>();
-					if (meetingResult.getKeywords() != null) {
-						meetingResult.getKeywords()
-								.forEach(mrk -> existingNames.add(mrk.getKeyword().getName().trim()));
-					}
-
-					for (String kName : aiKeywords) {
-						String normalizedName = kName.trim(); // 공백 제거
-
-						// 2. 이미 존재하는 키워드라면 저장하지 않고 건너뜀 (DB 에러 방지)
-						if (existingNames.contains(normalizedName)) {
-							continue;
-						}
-
-						// 3. 키워드 엔티티 조회 또는 생성
-						Keyword keyword = keywordRepository.findByName(normalizedName).orElseGet(
-								() -> keywordRepository.save(Keyword.builder().name(normalizedName).build()));
-
-						// 4. 연결 엔티티 생성
-						MeetingResultKeyword mrk = MeetingResultKeyword.builder().meetingResult(meetingResult)
-								.keyword(keyword).source(KeywordSource.AI).build();
-
-						// 5. 리스트에 추가하고, Set에도 추가하여(AI가 중복 단어를 보낸 경우) 방지
-						meetingResult.getKeywords().add(mrk);
-						existingNames.add(normalizedName);
-					}
-				}
-
-				return meetingResultRepository.save(meetingResult);
-
-			} else {
-				log.error("AI 응답이 비어있거나 실패했습니다: {}", aiResponse);
-				throw new RuntimeException("AI 요약 생성 실패: 응답 없음");
-			}
-		} catch (Exception e) {
-			log.error("AI 서버 통신 중 오류 발생: {}", e.getMessage());
-			e.printStackTrace();
-			throw new RuntimeException("AI 요약 생성에 실패했습니다.");
-		}
-	}
+            } else {
+                log.error("AI 응답이 비어있거나 실패했습니다: {}", aiResponse);
+                throw new RuntimeException("AI 요약 생성 실패: 응답 없음");
+            }
+        } catch (Exception e) {
+            log.error("AI 서버 통신 중 오류 발생: {}", e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("AI 요약 생성에 실패했습니다.");
+        }
+    }
 
 	// AI 액션 아이템 생성 요청
 	@SuppressWarnings("unchecked")
