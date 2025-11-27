@@ -53,7 +53,7 @@ public class CalendarEventService {
 	            .orElseThrow(() -> new ResourceNotFoundException("MeetUser를 찾을 수 없습니다: " + userEmail));
 
 	    Long userId = meetUser.getId();
-	    String accessToken = tokenManagerService.getToken(userEmail, "google");
+	    // String accessToken = tokenManagerService.getToken(userEmail, "google");
 
 	    // 로컬 DB 조회 (Task 및 로컬 이벤트)
 	    // List는 나중에 구글 이벤트를 추가해야 하므로 수정 가능한 ArrayList로 감싸는 것이 안전합니다.
@@ -62,6 +62,15 @@ public class CalendarEventService {
 	    List<CalendarEventResponse> responseEvents = localEvents.stream()
 	            .map(CalendarEventResponse::from)
 	            .collect(Collectors.toList());
+
+		// [수정] Google 토큰 조회를 try-catch로 감싸서 예외 발생 시에도 로컬 데이터 반환
+		String accessToken = null;
+		try {
+			accessToken = tokenManagerService.getToken(userEmail, "google");
+		} catch (Exception e) {
+			log.warn("Google 토큰 조회 실패, 로컬 데이터만 반환: {}", e.getMessage());
+			return responseEvents;
+		}
 
 	    // 토큰이 없으면 로컬 데이터만 반환
 	    if (accessToken == null || accessToken.isEmpty()) {
