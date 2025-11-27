@@ -24,6 +24,8 @@ spring:
       client:
         registration:
           google:
+            # 배포 환경 도메인 적용
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             user-name-attribute: sub
             scope:
               - profile
@@ -57,9 +59,9 @@ logging:
 # OAuth2 리다이렉트 URI 설정
 #app:
   #oauth2:
-    #fail-uri: http://localhost:8080/login?error=true
-    #success-uri: http://localhost:8080/dashboard
-    #redirect-uri: http://localhost:8080/oauth2/redirect
+    #fail-uri: http://dialogai.duckdns.org:8080/login?error=true
+    #success-uri: http://dialogai.duckdns.org:8080/dashboard
+    #redirect-uri: http://dialogai.duckdns.org:8080/oauth2/redirect
     
 # 커스텀 구글 API 설정 (캘린더 연동용)
 google:
