@@ -18,7 +18,8 @@ FROM eclipse-temurin:17-jdk
 WORKDIR /app
 
 # builder에서 생성된 jar 파일 복사
-COPY --from=builder /app/build/libs/*.jar app.jar
+# [수정] plain 제외
+COPY --from=builder /app/build/libs/*-SNAPSHOT.jar app.jar
 
 # 8080 포트 오픈
 EXPOSE 8080
