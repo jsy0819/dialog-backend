@@ -40,10 +40,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // }
 
         String uri = request.getRequestURI();
-        // 인증 불필요 경로는 JWT 필터 건너뛰기 (SecurityConfig permitAll과 일치)
-        // /api/auth/** 경로는 회원가입, 로그인 등 인증 없이 접근해야 하는 API
-        // SecurityConfig에서 permitAll 설정했지만, JWT 필터가 먼저 실행되므로 여기서도 예외 처리 필요
-        if (uri.startsWith("/api/auth/") || uri.equals("/api/reissue") || uri.startsWith("/public/")) {
+        // 인증 불필요 경로는 JWT 필터 건너뛰기
+        if (uri.equals("/api/auth/signup") || 
+            uri.equals("/api/auth/login") || 
+            uri.equals("/api/auth/forgotPassword") || 
+            uri.equals("/api/auth/resetPassword") || 
+            uri.equals("/api/reissue") || 
+            uri.startsWith("/public/")) {
             chain.doFilter(request, response);
             return;
         }

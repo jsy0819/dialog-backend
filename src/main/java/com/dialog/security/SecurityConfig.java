@@ -68,8 +68,8 @@ public class SecurityConfig {
            .authorizeHttpRequests(auth -> auth
                 // CORS preflight 요청 허용
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-    	        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/me", "/api/reissue", 
-    				   "/api/auth/forgotPassword", "/api/auth/resetPassword").permitAll()
+    	        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/reissue", 
+                    "/api/auth/forgotPassword", "/api/auth/resetPassword").permitAll()
     		   // 추후 스프링 내부에서 css, js, images 사용시 주석 해제후 사용
 //    		   .requestMatchers("/css/**",
 //    				   "/js/**", "/images/**").permitAll()
