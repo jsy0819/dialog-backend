@@ -66,7 +66,9 @@ public class SecurityConfig {
             
             // 5. 권한 설정: 지정된 URL만 무인증 접근 가능, 기타는 인증 필요
            .authorizeHttpRequests(auth -> auth
-    		   .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/me", "/api/reissue", 
+                // CORS preflight 요청 허용
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+    	        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/me", "/api/reissue", 
     				   "/api/auth/forgotPassword", "/api/auth/resetPassword").permitAll()
     		   // 추후 스프링 내부에서 css, js, images 사용시 주석 해제후 사용
 //    		   .requestMatchers("/css/**",
