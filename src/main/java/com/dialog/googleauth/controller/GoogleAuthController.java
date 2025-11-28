@@ -29,24 +29,13 @@ public class GoogleAuthController {
     
     @GetMapping("/api/calendar/link/start")
     public ResponseEntity<?> startGoogleAccountLink(Authentication authentication) {
-        // [수정] Principal이 null인지만 체크 (UserDetails 타입 강제 제거 - JWT 인증 시 String 타입일 수 있음)
-        if (authentication == null || authentication.getPrincipal() == null) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails)) {
             return ResponseEntity.status(401).body(Map.of("error", "인증이 필요합니다."));
         }
 
         try {
-            Object principal = authentication.getPrincipal();
-            Long userId;
-            
-            // [수정] Principal 타입에 따라 분기 처리 (일반/카카오 로그인 사용자도 Google 캘린더 연동 가능하도록)
-            if (principal instanceof UserDetails userDetails) {
-                userId = googleAuthService.extractUserId(userDetails);
-            } else if (principal instanceof String email) {
-                userId = googleAuthService.extractUserIdByEmail(email);
-            } else {
-                return ResponseEntity.status(401).body(Map.of("error", "지원하지 않는 인증 타입입니다."));
-            }
-                        
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            Long userId = googleAuthService.extractUserId(userDetails);
             String authUrl = googleAuthService.generateAuthUrl(userId);
             return ResponseEntity.ok(Map.of("authUrl", authUrl));
         } catch (UserNotFoundException e) {
