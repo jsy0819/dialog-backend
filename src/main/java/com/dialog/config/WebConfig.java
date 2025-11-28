@@ -6,13 +6,19 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-	@Override
-	public void addCorsMappings(CorsRegistry registry) {
-		registry.addMapping("/api/**") // /api로 시작하는 모든 경로에 대해 CORS 적용
-				.allowedOrigins("http://localhost:5500", "http://127.0.0.1:5500", "http://localhost:5501",
-						"http://127.0.0.1:5501") // 허용할 프론트엔드 출처 지정.
-				// 실제 사용할 HTTP 메서드만 명시(예: GET, POST 등). *대신 "*"이면 모두 허용
-				.allowedMethods("*") // 모든 HTTP 메서드 허용 ("GET", "POST", "PUT" 등). 운영환경에선 보안 위해 필요한 메서드만 지정 권장
-				.allowCredentials(true); // 인증정보(쿠키, 인증 헤더 등) 포함 요청 허용. OAuth/JWT/SameSite 세션 등에 필요
-	}
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**") // /api/** 뿐만 아니라 전체 경로 허용 권장 (static 리소스 등 고려)
+                .allowedOrigins(
+                        "http://localhost:5500",      // 로컬 테스트용
+                        "http://127.0.0.1:5500",      // 로컬 테스트용
+                        "http://dialogai.duckdns.org",      // 배포된 프론트엔드 도메인 (HTTP)
+                        "https://dialogai.duckdns.org",     // 혹시 HTTPS를 쓴다면 필수
+                        "http://dialogai.duckdns.org:5500"  // 만약 배포 후에도 5500 포트를 쓴다면
+                )
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS") // "*" 대신 명시하는 것이 보안상 좋음
+                .allowedHeaders("*")
+                .allowCredentials(true) // 쿠키 인증 요청 허용 (중요)
+                .maxAge(3600); // Preflight 요청 캐시 시간 (1시간)
+    }
 }
