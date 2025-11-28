@@ -65,6 +65,7 @@ public class MeetingCreateResponseDto {
         private LocalDateTime dueDate;
         private String source;
         private boolean isCompleted;
+        private String googleEventId;
 
         public ActionItemDto(ActionItem item) {
             this.task = item.getTask();
@@ -72,82 +73,84 @@ public class MeetingCreateResponseDto {
             this.dueDate = item.getDueDate();
             this.source = item.getSource();
             this.isCompleted = item.isCompleted();
+            this.googleEventId = item.getGoogleEventId();
         }
     }
 
     public MeetingCreateResponseDto(Meeting meeting) {
-        this.meetingId = meeting.getId();
-        this.title = meeting.getTitle();
-        this.status = meeting.getStatus();
-        this.scheduledAt = meeting.getScheduledAt();
+    this.meetingId = meeting.getId();
+    this.title = meeting.getTitle();
+    this.status = meeting.getStatus();
+    this.scheduledAt = meeting.getScheduledAt();
+    
+    // 참가자 Null 방지
+    if (meeting.getParticipants() != null) {
+        this.participants = meeting.getParticipants().stream()
+                .map(p -> p.getName()) 
+                .collect(Collectors.toList());
+    } else {
+        this.participants = new ArrayList<>();
+    }
+    
+    if (meeting.getHostUser() != null) {
+        this.authorName = meeting.getHostUser().getName();
+    }
+
+    // MeetingResult 데이터 매핑
+    MeetingResult result = meeting.getMeetingResult();
+    
+    // 1. AI 결과가 있을 때 (Completed 상태 등)
+    if (result != null) {
+        this.purpose = result.getPurpose();
+        this.agenda = result.getAgenda();
+        this.summary = result.getSummary();
         
-        // 참가자 Null 방지
-        if (meeting.getParticipants() != null) {
-            this.participants = meeting.getParticipants().stream()
-                    .map(p -> p.getName()) 
+        // 중요도가 NULL이면 강제로 MEDIUM을 넣지 않고 NULL 유지
+        if (result.getImportance() != null) {
+            this.importance = new ImportanceData(
+                    result.getImportance().name(), 
+                    result.getImportanceReason()
+            ); 
+        } else {
+            // 분석 전이거나 값이 없으면 null로 내보냄 (프론트엔드에서 '분석 전' 처리)
+            this.importance = null; 
+        }
+
+        // 키워드 리스트가 null일 경우 에러 방지
+        if (result.getKeywords() != null) {
+            this.keywords = result.getKeywords().stream()
+                    .map(mrk -> new KeywordDto(
+                        mrk.getKeyword().getName(), 
+                        (mrk.getSource() != null) ? mrk.getSource().name() : "AI"
+                    ))
                     .collect(Collectors.toList());
         } else {
-            this.participants = new ArrayList<>();
-        }
-        
-        if (meeting.getHostUser() != null) {
-            this.authorName = meeting.getHostUser().getName();
-        }
-
-        // MeetingResult 데이터 매핑
-        MeetingResult result = meeting.getMeetingResult();
-        
-        // 1. AI 결과가 있을 때 (Completed 상태 등)
-        if (result != null) {
-            this.purpose = result.getPurpose();
-            this.agenda = result.getAgenda();
-            this.summary = result.getSummary();
-            
-            if (result.getImportance() != null) {
-                this.importance = new ImportanceData(
-                        result.getImportance().name(), 
-                        result.getImportanceReason()
-                ); 
-            } else {
-                this.importance = new ImportanceData("MEDIUM", "");
-            }
-
-            // 키워드 리스트가 null일 경우 에러 방지
-            if (result.getKeywords() != null) {
-                this.keywords = result.getKeywords().stream()
-                        .map(mrk -> new KeywordDto(
-                            mrk.getKeyword().getName(), 
-                            (mrk.getSource() != null) ? mrk.getSource().name() : "AI"
-                        ))
-                        .collect(Collectors.toList());
-            } else {
-                this.keywords = new ArrayList<>();
-            }
-
-            // 액션 아이템 리스트가 null일 경우 에러 방지
-            if (result.getActionItems() != null) {
-                this.actionItems = result.getActionItems().stream()
-                        .map(ActionItemDto::new)
-                        .collect(Collectors.toList());
-            } else {
-                this.actionItems = new ArrayList<>();
-            }
-        } else {
-            // 2. AI 결과가 없을 때 (기본값 or 하이라이트 키워드 사용)
-            this.purpose = "";
-            this.agenda = "";
-            this.summary = "";
-            this.importance = new ImportanceData("MEDIUM", "");
-            
             this.keywords = new ArrayList<>();
-            // DB 문자열("키워드1,키워드2") -> 리스트 변환 로직
-            if (meeting.getHighlightKeywords() != null && !meeting.getHighlightKeywords().isEmpty()) { 
-                for(String s : meeting.getHighlightKeywords().split(",")) {
-                    this.keywords.add(new KeywordDto(s.trim(), "USER")); 
-                }
-            }
-            
+        }
+
+        // 액션 아이템 리스트가 null일 경우 에러 방지
+        if (result.getActionItems() != null) {
+            this.actionItems = result.getActionItems().stream()
+                    .map(ActionItemDto::new)
+                    .collect(Collectors.toList());
+        } else {
             this.actionItems = new ArrayList<>();
         }
+    } else {
+        // 2. AI 결과가 없을 때
+        this.purpose = "";
+        this.agenda = "";
+        this.summary = "";
+        this.importance = null; // 결과가 없으니 당연히 중요도도 없음
+        
+        this.keywords = new ArrayList<>();
+        if (meeting.getHighlightKeywords() != null && !meeting.getHighlightKeywords().isEmpty()) { 
+            for(String s : meeting.getHighlightKeywords().split(",")) {
+                this.keywords.add(new KeywordDto(s.trim(), "USER")); 
+            }
+        }
+        
+        this.actionItems = new ArrayList<>();
     }
+  }
 }

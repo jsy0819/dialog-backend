@@ -257,8 +257,10 @@ public class MeetingService {
             meeting.setMeetingResult(meetingResult);
         }
 
-        ImportanceLevel importance = ImportanceLevel.MEDIUM;
+        // 기본값을 null로 변경 (분석 전 상태 허용)
+        ImportanceLevel importance = null; 
         String importanceReason = "";
+        
         if (updateDto.getImportance() != null) {
             if (updateDto.getImportance().getLevel() != null) {
                 try {
@@ -269,6 +271,7 @@ public class MeetingService {
             importanceReason = updateDto.getImportance().getReason();
         }
 
+        // 이제 importance가 null이면 DB에도 null로 저장됩니다.
         meetingResult.updateSummaryInfo(
                 updateDto.getPurpose(),
                 updateDto.getAgenda(),
@@ -337,6 +340,7 @@ public class MeetingService {
                         .dueDate(dueDateTime)
                         .isCompleted(itemDto.getIsCompleted() != null ? itemDto.getIsCompleted() : false)
                         .source(itemDto.getSource())
+                        .googleEventId(itemDto.getGoogleEventId())
                         .build();
                 
                 newActionItems.add(actionItem);

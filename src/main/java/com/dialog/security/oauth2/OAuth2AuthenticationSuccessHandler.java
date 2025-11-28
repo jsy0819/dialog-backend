@@ -41,7 +41,8 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
    private final UserTokenServiceImpl userTokenService;
    private final OAuth2AuthorizedClientService authorizedClientService;
    private final CookieUtil cookieUtil;
-
+   private final HttpCookieOAuth2AuthorizationRequestRepository authorizationRequestRepository;
+   
     @Value("${app.oauth2.redirect-uri}")
     String redirectUrl ;
 
@@ -110,6 +111,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
            response.addCookie(cookieUtil.createRefreshTokenCookie(refreshTokenDto.getRefreshToken()));
 
            // 6. 리다이렉트
+           authorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
            
            String targetUrl = redirectUrl; // application.yml에서 가져온 기본 URL
 
