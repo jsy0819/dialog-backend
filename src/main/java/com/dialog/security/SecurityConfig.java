@@ -15,6 +15,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import com.dialog.global.utill.CookieUtil;
 import com.dialog.security.jwt.JwtAuthenticationFilter;
 import com.dialog.security.jwt.JwtTokenProvider;
+import com.dialog.security.oauth2.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.dialog.security.oauth2.OAuth2AuthenticationFailurHandler;
 import com.dialog.security.oauth2.OAuth2AuthenticationSuccessHandler;
 import com.dialog.user.service.CustomOAuth2UserService;
@@ -22,12 +23,6 @@ import com.dialog.user.service.CustomOAuth2UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-// CORS 설정을 위한 import 추가
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.Arrays;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -42,6 +37,7 @@ public class SecurityConfig {
     private final JwtTokenProvider jwtTokenProvider;                             // JWT 토큰 생성/검증기
     private final OAuth2AuthorizationRequestResolver customAuthorizationRequestResolver;
     private final CookieUtil cookieUtil;
+    private final HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
 
     @Value("${app.oauth2.fail-uri}")
     String failUrl;
@@ -66,10 +62,8 @@ public class SecurityConfig {
             
             // 5. 권한 설정: 지정된 URL만 무인증 접근 가능, 기타는 인증 필요
            .authorizeHttpRequests(auth -> auth
-                // CORS preflight 요청 허용
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-    	        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/reissue", 
-                    "/api/auth/forgotPassword", "/api/auth/resetPassword").permitAll()
+    		   .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/me", "/api/reissue", 
+    				   "/api/auth/forgotPassword", "/api/auth/resetPassword").permitAll()
     		   // 추후 스프링 내부에서 css, js, images 사용시 주석 해제후 사용
 //    		   .requestMatchers("/css/**",
 //    				   "/js/**", "/images/**").permitAll()
@@ -87,6 +81,7 @@ public class SecurityConfig {
                    )
                    .authorizationEndpoint(authz -> authz
                        .authorizationRequestResolver(customAuthorizationRequestResolver) 
+                       .authorizationRequestRepository(httpCookieOAuth2AuthorizationRequestRepository)
                    )
                    .successHandler(oAuth2successHandler)
                    .failureHandler(oAuth2faliureHandler)
@@ -127,28 +122,5 @@ public class SecurityConfig {
             )
             
             .build();
-    }
-    // CORS 설정: 프론트엔드(5500 포트)에서 백엔드(8080 포트)로 요청 허용
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        // 허용할 프론트엔드 주소 설정 (로컬 + 배포 서버)
-        configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:5500",
-            "http://dialogai.duckdns.org:5500"
-        ));
-        // 허용할 HTTP 메서드 설정
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        // 모든 헤더 허용
-        configuration.setAllowedHeaders(Arrays.asList("*"));
-        // 쿠키 인증 정보 허용 (JWT 토큰 쿠키 전송 위해 필요)
-        configuration.setAllowCredentials(true);
-        // CORS 설정 캐시 시간 (1시간)
-        configuration.setMaxAge(3600L);
-        
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // 모든 경로에 대해 CORS 설정 적용
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
     }
 }
