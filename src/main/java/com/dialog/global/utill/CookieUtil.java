@@ -2,6 +2,8 @@ package com.dialog.global.utill;
 
 import java.util.Base64;
 
+import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
@@ -11,8 +13,11 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class CookieUtil {
-	
-	// 쿠키 조회 메서드
+
+    @Value("${cookie.domain:}")
+    private String cookieDomain;
+   
+   // 쿠키 조회 메서드
     public Cookie getCookie(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
@@ -49,8 +54,8 @@ public class CookieUtil {
     
     // 쿠키 삭제 (HttpOnly 설정을 직접 지정: savedEmail 등) 
     public Cookie deleteCookie(String name, boolean httpOnly) {
-		return createCookie(name, null, 0, httpOnly);
-	}
+      return createCookie(name, null, 0, httpOnly);
+   }
 
     // 쿠키를 생성해서 바로 Response에 담는 메서드 (Repository에서 사용)
     public void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
@@ -78,7 +83,10 @@ public class CookieUtil {
         cookie.setHttpOnly(httpOnly);
         cookie.setSecure(false); // 배포(HTTPS) 환경이면 true로 변경 필요
         cookie.setPath("/");
-        cookie.setDomain("dialogai.duckdns.org");
+        // 도메인이 설정되어 있을 때만 적용 (로컬에서는 비워둠)
+        if (cookieDomain != null && !cookieDomain.isEmpty()) {
+            cookie.setDomain(cookieDomain);
+        }
         cookie.setMaxAge(maxAge);
         return cookie;
     }
