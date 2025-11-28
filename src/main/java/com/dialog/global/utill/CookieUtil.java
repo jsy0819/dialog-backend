@@ -78,6 +78,7 @@ public class CookieUtil {
         cookie.setHttpOnly(httpOnly);
         cookie.setSecure(false); // 배포(HTTPS) 환경이면 true로 변경 필요
         cookie.setPath("/");
+        // [수정] 쿠키 도메인 설정으로 크로스 도메인 문제 해결
         cookie.setDomain("dialogai.duckdns.org");
         cookie.setMaxAge(maxAge);
         return cookie;
