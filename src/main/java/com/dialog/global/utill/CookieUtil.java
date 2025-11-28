@@ -16,8 +16,8 @@ public class CookieUtil {
 
     @Value("${cookie.domain:}")
     private String cookieDomain;
-	
-	// 쿠키 조회 메서드
+   
+   // 쿠키 조회 메서드
     public Cookie getCookie(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
@@ -54,8 +54,8 @@ public class CookieUtil {
     
     // 쿠키 삭제 (HttpOnly 설정을 직접 지정: savedEmail 등) 
     public Cookie deleteCookie(String name, boolean httpOnly) {
-		return createCookie(name, null, 0, httpOnly);
-	}
+      return createCookie(name, null, 0, httpOnly);
+   }
 
     // 쿠키를 생성해서 바로 Response에 담는 메서드 (Repository에서 사용)
     public void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
