@@ -129,6 +129,7 @@ public class SecurityConfig {
             .build();
     }
 
+    // [수정] CORS 설정 Bean 추가 - .cors(withDefaults())가 제대로 동작하도록
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
