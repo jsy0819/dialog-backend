@@ -1,9 +1,13 @@
 package com.dialog.global.utill;
 
+import java.util.Base64;
+
 import org.springframework.stereotype.Component;
+import org.springframework.util.SerializationUtils;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class CookieUtil {
@@ -20,6 +24,7 @@ public class CookieUtil {
         }
         return null;
     }
+    
 
     // JWT 액세스 토큰 쿠키 생성
     public Cookie createAccessTokenCookie(String token) {
@@ -47,6 +52,26 @@ public class CookieUtil {
 		return createCookie(name, null, 0, httpOnly);
 	}
 
+    // 쿠키를 생성해서 바로 Response에 담는 메서드 (Repository에서 사용)
+    public void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
+        // 기존의 createCookie 메서드를 재활용하여 도메인/경로 설정 유지
+        Cookie cookie = createCookie(name, value, maxAge, true); 
+        response.addCookie(cookie);
+    }
+
+    // 쿠키를 삭제하고 Response에 반영하는 메서드 (Repository에서 사용)
+    public void deleteCookie(HttpServletRequest request, HttpServletResponse response, String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (cookie.getName().equals(name)) {
+                    // 값은 null, 수명은 0으로 설정해서 덮어씌움 (삭제 효과)
+                    Cookie cookieToDelete = createCookie(name, null, 0, true);
+                    response.addCookie(cookieToDelete);
+                }
+            }
+        }
+    }
     // 내부적으로 사용하는 공통 메서드
     private Cookie createCookie(String name, String value, int maxAge, boolean httpOnly) {
         Cookie cookie = new Cookie(name, value);
@@ -59,5 +84,15 @@ public class CookieUtil {
         return cookie;
     }
 
+    // 객체를 직렬화해서 쿠키 값으로 변환
+    public String serialize(Object object) {
+        return Base64.getUrlEncoder()
+                .encodeToString(SerializationUtils.serialize(object));
+    }
 
+    // 쿠키 값을 역직렬화해서 객체로 변환
+    public <T> T deserialize(Cookie cookie, Class<T> cls) {
+        return cls.cast(SerializationUtils.deserialize(
+                Base64.getUrlDecoder().decode(cookie.getValue())));
+    }
 }

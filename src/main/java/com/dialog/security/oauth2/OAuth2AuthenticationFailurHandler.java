@@ -11,10 +11,13 @@ import org.springframework.stereotype.Component;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 
-
+@RequiredArgsConstructor
 @Component
 public class OAuth2AuthenticationFailurHandler implements AuthenticationFailureHandler {
+	
+	private final HttpCookieOAuth2AuthorizationRequestRepository authorizationRequestRepository;
 	
     @Value("${app.oauth2.fail-uri}")
     String failUrl;
@@ -33,6 +36,8 @@ public class OAuth2AuthenticationFailurHandler implements AuthenticationFailureH
 	       }
 	       request.getSession().setAttribute("socialErrorMessage", errMsg);
 	       
+	       // 실패했더라도 임시 쿠키는 삭제
+	       authorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
 		   // 로그인 페이지로 리다이렉트
 	       response.sendRedirect(failUrl);
 
