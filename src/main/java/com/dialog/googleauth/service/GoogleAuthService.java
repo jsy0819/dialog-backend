@@ -42,7 +42,8 @@ public class GoogleAuthService {
     @Value("${google.client.secret}")
     private String clientSecret;
 
-    @Value("${google.redirect.uri}")
+    // [수정] 캘린더 연동용 별도 redirect URI 사용
+    @Value("${google.calendar.link.redirect.uri}")
     private String redirectUri;
 
     private static final String SCOPE = "https://www.googleapis.com/auth/calendar.events";
@@ -129,5 +130,15 @@ public String generateAuthUrl(Long userId) {
             log.error("구글 토큰 교환 실패", e);
             throw new GoogleTokenExchangeException("Google 토큰 통신 오류: " + e.getMessage(), e);
         }
+    }
+
+    // [수정] JWT 인증 시 Principal이 String(email)인 경우를 위한 메서드 추가
+    public Long extractUserIdByEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("이메일이 비어있습니다.");
+        }
+        MeetUser user = meetUserRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("DB에서 사용자를 찾을 수 없습니다: " + email));
+        return user.getId();
     }
 }
