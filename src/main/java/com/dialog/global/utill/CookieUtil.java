@@ -2,6 +2,8 @@ package com.dialog.global.utill;
 
 import java.util.Base64;
 
+import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
@@ -11,6 +13,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class CookieUtil {
+
+    @Value("${cookie.domain:}")
+    private String cookieDomain;
 	
 	// 쿠키 조회 메서드
     public Cookie getCookie(HttpServletRequest request, String name) {
@@ -78,8 +83,10 @@ public class CookieUtil {
         cookie.setHttpOnly(httpOnly);
         cookie.setSecure(false); // 배포(HTTPS) 환경이면 true로 변경 필요
         cookie.setPath("/");
-        // [수정] 쿠키 도메인 설정으로 크로스 도메인 문제 해결
-        cookie.setDomain("dialogai.duckdns.org");
+        // 도메인이 설정되어 있을 때만 적용 (로컬에서는 비워둠)
+        if (cookieDomain != null && !cookieDomain.isEmpty()) {
+            cookie.setDomain(cookieDomain);
+        }
         cookie.setMaxAge(maxAge);
         return cookie;
     }
