@@ -61,12 +61,16 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     
 # OAuth2 리다이렉트 URI 설정
-#app:
-  #oauth2:
-    #fail-uri: http://dialogai.duckdns.org:8080/login?error=true
-    #success-uri: http://dialogai.duckdns.org:8080/dashboard
-    #redirect-uri: http://dialogai.duckdns.org:8080/oauth2/redirect
-    
+app:
+  oauth2:
+    fail-uri: ${APP_OAUTH2_FAIL_URI:http://localhost:8080/login?error=true}
+    redirect-uri: ${APP_OAUTH2_REDIRECT_URI:http://localhost:8080/home}
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:8080}
+
+# 쿠키 도메인 설정 (로컬에선 비워둠, 배포에선 도메인 설정)
+cookie:
+  domain: ${COOKIE_DOMAIN:}
+
 # 커스텀 구글 API 설정 (캘린더 연동용)
 google:
   client:
@@ -76,5 +80,3 @@ google:
     uri: ${GOOGLE_REDIRECT_URI}      # docker-compose의 GOOGLE_REDIRECT_URI 매핑
   api:
     calendar-url: ${GOOGLE_API_CALENDAR_URL} # docker-compose의 GOOGLE_API_CALENDAR_URL 매핑
-app:
-  frontend-url: ${APP_FRONTEND_URL}  # docker-compose의 APP_FRONTEND_URL 매핑
