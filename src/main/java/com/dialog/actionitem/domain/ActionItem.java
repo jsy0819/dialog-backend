@@ -59,6 +59,9 @@ public class ActionItem {
 	@Column(length = 20)
 	private String source;
 
+  @Column(name = "google_event_id")
+  private String googleEventId;
+
 	@CreationTimestamp
 	@Column(name = "created_at", updatable = false)
 	private LocalDateTime createdAt;
@@ -71,5 +74,10 @@ public class ActionItem {
 	public void setMeetingResult(MeetingResult meetingResult) {
 		this.meetingResult = meetingResult;
 	}
+
+  // 캘린더 연동 해제 및 설정을 위한 메서드
+  public void setGoogleEventId(String googleEventId) {
+      this.googleEventId = googleEventId;
+  }
 
 }

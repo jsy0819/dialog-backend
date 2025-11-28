@@ -28,6 +28,8 @@ import com.dialog.todo.repository.TodoRepository;
 import com.dialog.token.service.SocialTokenService;
 import com.dialog.user.domain.MeetUser;
 import com.dialog.user.repository.MeetUserRepository;
+import com.dialog.actionitem.domain.ActionItem;
+import com.dialog.actionitem.repository.ActionItemRepository;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +47,7 @@ public class CalendarEventService {
 	private final MeetUserRepository meetUserRepository;
 	private final MeetingRepository meetingRepository;
 	private final TodoRepository todoRepository;
+  private final ActionItemRepository actionItemRepository;
 
 	public List<CalendarEventResponse> getEventsByDateRange(String userEmail, LocalDate startDate, LocalDate endDate) {
 
@@ -218,63 +221,72 @@ public class CalendarEventService {
 	}
 
 	@Transactional
-	public void deleteCalendarEvent(String userEmail, String eventId) {
-		String accessToken = tokenManagerService.getToken(userEmail, "google");
+  public void deleteCalendarEvent(String userEmail, String eventId) {
+      String accessToken = tokenManagerService.getToken(userEmail, "google");
 
-		MeetUser user = meetUserRepository.findByEmail(userEmail)
-				.orElseThrow(() -> new ResourceNotFoundException("사용자를 찾을 수 없습니다: " + userEmail));
+      MeetUser user = meetUserRepository.findByEmail(userEmail)
+              .orElseThrow(() -> new ResourceNotFoundException("사용자를 찾을 수 없습니다: " + userEmail));
 
-		// 로컬 이벤트 조회 (Google ID 또는 DB ID로 찾기)
-		CalendarEvent localEvent = null;
-		Optional<CalendarEvent> byGoogleId = calendarEventRepository.findByGoogleEventIdAndUserId(eventId, user.getId());
+      // 로컬 이벤트 조회
+      CalendarEvent localEvent = null;
+      Optional<CalendarEvent> byGoogleId = calendarEventRepository.findByGoogleEventIdAndUserId(eventId, user.getId());
 
-		if (byGoogleId.isPresent()) {
-			localEvent = byGoogleId.get();
-		} else {
-			try {
-				Long dbId = Long.parseLong(eventId);
-				localEvent = calendarEventRepository.findById(dbId)
-						.filter(e -> e.getUserId().equals(user.getId()))
-						.orElseThrow(() -> new ResourceNotFoundException("삭제할 이벤트를 찾을 수 없습니다. ID: " + eventId));
-			} catch (NumberFormatException nfe) {
-				throw new ResourceNotFoundException("유효하지 않은 이벤트 ID입니다: " + eventId);
-			}
-		}
+      if (byGoogleId.isPresent()) {
+          localEvent = byGoogleId.get();
+      } else {
+          try {
+              Long dbId = Long.parseLong(eventId);
+              localEvent = calendarEventRepository.findById(dbId)
+                      .filter(e -> e.getUserId().equals(user.getId()))
+                      .orElseThrow(() -> new ResourceNotFoundException("삭제할 이벤트를 찾을 수 없습니다. ID: " + eventId));
+          } catch (NumberFormatException nfe) {
+              throw new ResourceNotFoundException("유효하지 않은 이벤트 ID입니다: " + eventId);
+          }
+      }
 
-		// 구글 API 삭제 요청 (Google ID가 있을 경우)
-		if (localEvent.getGoogleEventId() != null && accessToken != null) {
-			try {
-				googleCalendarApiClient.deleteEvent(accessToken, "primary", localEvent.getGoogleEventId());
-			} catch (Exception e) {
-				// 에러 메시지 분석
-				String errorMsg = (e.getMessage() != null) ? e.getMessage() : "";
+      String targetGoogleEventId = localEvent.getGoogleEventId();
 
-				// 로그에서 확인된 "404 NOT_FOUND" 메시지를 체크합니다.
-				if (errorMsg.contains("404") || errorMsg.contains("NOT_FOUND")) {
-					log.info("Google 캘린더에 이미 없는 이벤트입니다(404). 로컬 삭제를 진행합니다.");
-				} else if (errorMsg.contains("invalid_grant")) {
-					throw new GoogleOAuthException("Google 토큰이 만료되었습니다.");
-				} else {
-					// 404가 아닌 다른 에러(500 등)는 로그만 남기고 로컬 삭제 진행 (좀비 방지)
-					log.warn("Google API 삭제 요청 중 오류 발생 (로컬 삭제는 진행): {}", errorMsg);
-				}
-			}
-		}
+      // 1. 구글 API 삭제 요청
+      if (targetGoogleEventId != null && accessToken != null) {
+          try {
+              googleCalendarApiClient.deleteEvent(accessToken, "primary", targetGoogleEventId);
+          } catch (Exception e) {
+              String errorMsg = (e.getMessage() != null) ? e.getMessage() : "";
+              if (errorMsg.contains("404") || errorMsg.contains("NOT_FOUND")) {
+                  log.info("Google 캘린더에 이미 없는 이벤트입니다(404).");
+              } else if (errorMsg.contains("invalid_grant")) {
+                  throw new GoogleOAuthException("Google 토큰이 만료되었습니다.");
+              } else {
+                  log.warn("Google API 삭제 요청 오류: {}", errorMsg);
+              }
+          }
+      }
 
-		// 연결된 원본 Todo 데이터 확보 
-		// 캘린더 이벤트를 삭제하기 전에, 연결된 Todo 객체를 미리 변수에 담아둡니다.
-		Todo linkedTodo = localEvent.getTask();
+      // ActionItem 상태 동기화 (캘린더 삭제 시 '추가됨' 상태 해제)
+      // 캘린더 이벤트가 가지고 있는 googleEventId로 연결된 ActionItem을 찾아서 연결을 끊습니다.
+      if (targetGoogleEventId != null) {
+          Optional<ActionItem> linkedActionItem = actionItemRepository.findByGoogleEventId(targetGoogleEventId);
+          if (linkedActionItem.isPresent()) {
+              ActionItem item = linkedActionItem.get();
+              item.setGoogleEventId(null); // 연결 해제 -> 프론트엔드에서 '캘린더에 추가' 버튼으로 복귀됨
+              // 필요하다면 isCompleted 상태도 false로 돌릴 수 있습니다.
+              // item.setCompleted(false); 
+              actionItemRepository.save(item);
+              log.info("ActionItem 연동 해제 완료 (ActionItemId: {})", item.getId());
+          }
+      }
 
-		//로컬 캘린더 이벤트(껍데기) 삭제
-		calendarEventRepository.delete(localEvent);
-		log.info("로컬 캘린더 이벤트 삭제 완료: {}", eventId);
+      // 2. 연결된 Todo 삭제
+      Todo linkedTodo = localEvent.getTask();
 
-		// 연결된 Todo가 있다면 같이 삭제
-		if (linkedTodo != null) {
-			todoRepository.delete(linkedTodo);
-			log.info("연결된 원본 Todo 데이터 삭제 완료: ID={}", linkedTodo.getId());
-		}
-	}
+      // 3. 로컬 이벤트 삭제
+      calendarEventRepository.delete(localEvent);
+      log.info("로컬 캘린더 이벤트 삭제 완료: {}", eventId);
+
+      if (linkedTodo != null) {
+          todoRepository.delete(linkedTodo);
+      }
+  }
 
 	@Transactional
 	public void toggleImportance(String userEmail, String eventId) {

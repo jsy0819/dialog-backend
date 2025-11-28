@@ -60,6 +60,7 @@ public class MeetingUpdateResultDto {
 		private String source;
 		// 완료 여부 추가 (프론트엔드 isCompleted 반영)
 		private Boolean isCompleted;
+    private String googleEventId;
 	}
 
 	@Getter
