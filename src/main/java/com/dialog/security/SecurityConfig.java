@@ -133,9 +133,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        // [수정] WebConfig.java와 origin 목록 통일 - HTTP/HTTPS 둘 다 허용
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:5500",
             "http://127.0.0.1:5500",
+            "http://dialogai.duckdns.org",
+            "https://dialogai.duckdns.org",
             "http://dialogai.duckdns.org:5500"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
