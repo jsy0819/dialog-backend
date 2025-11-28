@@ -4,6 +4,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.dialog.actionitem.domain.ActionItem;
 
-public interface ActionItemRepository extends JpaRepository<ActionItem, Long> {
+import java.util.Optional;
 
+public interface ActionItemRepository extends JpaRepository<ActionItem, Long> {
+    Optional<ActionItem> findByGoogleEventId(String googleEventId);
 }
